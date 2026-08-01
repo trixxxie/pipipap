@@ -499,22 +499,36 @@
                 tg.ready();
                 tg.expand();
                 
+                // Сначала применяем тему, чтобы экран блокировки был красивым
+                if (tg.colorScheme === 'dark') {
+                    isDarkMode = true;
+                    document.documentElement.classList.add('dark');
+                } else {
+                    isDarkMode = false;
+                    document.documentElement.classList.remove('dark');
+                }
+                
                 // Проверка прав доступа
                 const userId = tg.initDataUnsafe?.user?.id;
                 
-                // Если приложение открыто в Телеграме, проверяем ID
+                // Если ID не совпадает с разрешенными
                 if (userId && !ALLOWED_USER_IDS.includes(userId)) {
-                    document.getElementById('access-denied-screen').classList.remove('hidden');
-                    document.getElementById('access-denied-screen').classList.add('flex');
-                    document.getElementById('denied-user-id').textContent = userId;
-                    // Прячем экран загрузки на всякий случай
-                    const loader = document.getElementById('loading-overlay');
-                    if (loader) loader.classList.add('hidden');
-                    return; // Останавливаем загрузку - человек ничего не увидит
+                    // ПОЛНОСТЬЮ стираем весь интерфейс приложения и рисуем замок
+                    document.body.innerHTML = `
+                        <div class="fixed inset-0 bg-gray-100 dark:bg-[#121212] flex flex-col items-center justify-center p-6 text-center z-[999]">
+                            <div class="w-24 h-24 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center text-5xl mb-6 shadow-lg">
+                                <i class="fas fa-lock"></i>
+                            </div>
+                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Доступ закрыт</h2>
+                            <p class="text-gray-500 dark:text-gray-400 mb-6">Извините, но у вас нет прав для использования этого приложения.</p>
+                            <div class="bg-white dark:bg-[#1e1e1e] px-4 py-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
+                                <span class="text-xs text-gray-400">Ваш Telegram ID:</span><br>
+                                <span class="font-mono font-bold text-gray-700 dark:text-gray-300">${userId}</span>
+                            </div>
+                        </div>
+                    `;
+                    return; // Полностью останавливаем загрузку логики и данных
                 }
-
-                if (tg.colorScheme === 'dark') isDarkMode = true;
-                else isDarkMode = false;
             }
             
             // Ждем завершения синхронизации с облаком
