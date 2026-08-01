@@ -491,10 +491,28 @@
             }
         }
 
+        // ВАЖНО: Впишите сюда разрешенные Telegram ID (числа без кавычек через запятую)
+        const ALLOWED_USER_IDS = [703834598, 703834598]; 
+
         window.onload = async function() {
             if (tg && tg.initData) {
                 tg.ready();
                 tg.expand();
+                
+                // Проверка прав доступа
+                const userId = tg.initDataUnsafe?.user?.id;
+                
+                // Если приложение открыто в Телеграме, проверяем ID
+                if (userId && !ALLOWED_USER_IDS.includes(userId)) {
+                    document.getElementById('access-denied-screen').classList.remove('hidden');
+                    document.getElementById('access-denied-screen').classList.add('flex');
+                    document.getElementById('denied-user-id').textContent = userId;
+                    // Прячем экран загрузки на всякий случай
+                    const loader = document.getElementById('loading-overlay');
+                    if (loader) loader.classList.add('hidden');
+                    return; // Останавливаем загрузку - человек ничего не увидит
+                }
+
                 if (tg.colorScheme === 'dark') isDarkMode = true;
                 else isDarkMode = false;
             }
