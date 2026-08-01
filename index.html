@@ -312,13 +312,13 @@
             }
         }
 
-        // App State
-        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
-        let loans = JSON.parse(localStorage.getItem('loans')) || [];
-        let templates = JSON.parse(localStorage.getItem('templates')) || [];
+        // App State (Variables initialized empty, populated asynchronously)
+        let transactions = [];
+        let loans = [];
+        let templates = [];
         let isDarkMode = localStorage.getItem('theme') === 'dark';
         
-        let categories = JSON.parse(localStorage.getItem('categories')) || {
+        const defaultCategories = {
             expense: [
                 {id: 'c1', name: 'Продукты', icon: 'fa-shopping-basket', color: '#3b82f6', isCustom: false},
                 {id: 'c2', name: 'Кафе', icon: 'fa-coffee', color: '#f59e0b', isCustom: false},
@@ -335,6 +335,7 @@
                 {id: 'c10', name: 'Прочее', icon: 'fa-ellipsis-h', color: '#9ca3af', isCustom: false}
             ]
         };
+        let categories = JSON.parse(JSON.stringify(defaultCategories));
 
         let currentAddType = 'expense';
         let selectedCategoryId = null;
@@ -376,23 +377,141 @@
             }, 3000);
         }
 
+        // --- Cloud Storage System with Sharding (4KB limit bypass) ---
+        let useCloudStorage = false;
+
+        function loadFromCloudSharded(keyPrefix) {
+            return new Promise((resolve) => {
+                try {
+                    tg.CloudStorage.getItem(`${keyPrefix}_meta`, (err, countStr) => {
+                        if (err || !countStr) return resolve(null);
+                        const count = parseInt(countStr);
+                        if (isNaN(count) || count === 0) return resolve([]);
+                        
+                        const keys = [];
+                        for (let i = 0; i < count; i++) keys.push(`${keyPrefix}_${i}`);
+                        
+                        tg.CloudStorage.getItems(keys, (err, values) => {
+                            if (err) return resolve(null);
+                            let fullStr = '';
+                            for (let i = 0; i < count; i++) fullStr += (values[`${keyPrefix}_${i}`] || '');
+                            try { resolve(JSON.parse(fullStr)); } catch(e) { resolve(null); }
+                        });
+                    });
+                } catch (e) {
+                    console.warn("Cloud read error:", e);
+                    resolve(null);
+                }
+            });
+        }
+
+        function saveToCloudSharded(keyPrefix, data) {
+            if (!useCloudStorage) return;
+            try {
+                const jsonStr = JSON.stringify(data);
+                const chunks = [];
+                for (let i = 0; i < jsonStr.length; i += 3900) chunks.push(jsonStr.substring(i, i + 3900));
+                
+                tg.CloudStorage.setItem(`${keyPrefix}_meta`, chunks.length.toString(), (err) => {
+                    if(!err) {
+                        chunks.forEach((chunk, index) => {
+                            tg.CloudStorage.setItem(`${keyPrefix}_${index}`, chunk);
+                        });
+                    }
+                });
+            } catch (e) {
+                console.warn("Cloud write error:", e);
+            }
+        }
+
+        async function initStorage() {
+            // Проверяем, поддерживается ли CloudStorage (появилось в Telegram Web App версии 6.9)
+            const isCloudSupported = tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9');
+
+            if (isCloudSupported) {
+                return new Promise((resolve) => {
+                    try {
+                        tg.CloudStorage.getKeys(async (err, keys) => {
+                            if (err) {
+                                console.warn("CloudStorage недоступно, используем локальную память.");
+                                loadFromLocal();
+                            } else {
+                                useCloudStorage = true;
+                                // Пробуем скачать данные из облака
+                                const cloudTxs = await loadFromCloudSharded('txs');
+                                const cloudLoans = await loadFromCloudSharded('loans');
+                                const cloudCats = await loadFromCloudSharded('cats');
+                                const cloudTpls = await loadFromCloudSharded('tpls');
+
+                                // Миграция: Если в облаке пусто, берём из браузера и заливаем в облако
+                                if (!cloudTxs && !cloudLoans && !cloudCats && !cloudTpls) {
+                                    loadFromLocal();
+                                    saveData(); 
+                                } else {
+                                    if (cloudTxs) transactions = cloudTxs;
+                                    if (cloudLoans) loans = cloudLoans;
+                                    if (cloudCats) categories = cloudCats;
+                                    if (cloudTpls) templates = cloudTpls;
+                                }
+                            }
+                            resolve();
+                        });
+                    } catch (e) {
+                        console.warn("Исключение при вызове CloudStorage, используем локальную память.");
+                        loadFromLocal();
+                        resolve();
+                    }
+                });
+            } else {
+                console.warn("CloudStorage не поддерживается вашей версией Telegram, используем локальную память.");
+                loadFromLocal();
+                return Promise.resolve();
+            }
+        }
+
+        function loadFromLocal() {
+            if (localStorage.getItem('transactions')) transactions = JSON.parse(localStorage.getItem('transactions'));
+            if (localStorage.getItem('loans')) loans = JSON.parse(localStorage.getItem('loans'));
+            if (localStorage.getItem('templates')) templates = JSON.parse(localStorage.getItem('templates'));
+            if (localStorage.getItem('categories')) categories = JSON.parse(localStorage.getItem('categories'));
+        }
+
         function saveData() {
+            // Всегда сохраняем локально на всякий случай
             localStorage.setItem('transactions', JSON.stringify(transactions));
             localStorage.setItem('loans', JSON.stringify(loans));
             localStorage.setItem('categories', JSON.stringify(categories));
             localStorage.setItem('templates', JSON.stringify(templates));
+
+            if (useCloudStorage) {
+                saveToCloudSharded('txs', transactions);
+                saveToCloudSharded('loans', loans);
+                saveToCloudSharded('cats', categories);
+                saveToCloudSharded('tpls', templates);
+            }
         }
 
-        window.onload = function() {
+        window.onload = async function() {
             if (tg && tg.initData) {
                 tg.ready();
                 tg.expand();
                 if (tg.colorScheme === 'dark') isDarkMode = true;
                 else isDarkMode = false;
             }
+            
+            // Ждем завершения синхронизации с облаком
+            await initStorage();
+            
             initTheme();
             updateAllViews();
             document.getElementById('date-input').valueAsDate = new Date();
+            
+            // Скрываем экран загрузки
+            const loader = document.getElementById('loading-overlay');
+            if (loader) {
+                loader.classList.add('opacity-0');
+                setTimeout(() => loader.classList.add('hidden'), 300);
+            }
         };
 
         function updateAllViews() {
