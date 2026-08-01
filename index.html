@@ -1,0 +1,985 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Мои Финансы</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        // Добавляем инициализацию Telegram
+        const tg = window.Telegram.WebApp;
+
+        // Вспомогательная функция для вибрации (если запущено в ТГ)
+        function hapticFeedback() {
+            if (tg && tg.HapticFeedback) {
+                tg.HapticFeedback.impactOccurred('light');
+            }
+        }
+
+        // State
+        let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
+        let loans = JSON.parse(localStorage.getItem('loans')) || [];
+        let templates = JSON.parse(localStorage.getItem('templates')) || [];
+        let isDarkMode = localStorage.getItem('theme') === 'dark';
+        
+        let categories = JSON.parse(localStorage.getItem('categories')) || {
+            expense: [
+                {id: 'c1', name: 'Продукты', icon: 'fa-shopping-basket', color: '#3b82f6', isCustom: false},
+                {id: 'c2', name: 'Кафе', icon: 'fa-coffee', color: '#f59e0b', isCustom: false},
+                {id: 'c3', name: 'Транспорт', icon: 'fa-car', color: '#8b5cf6', isCustom: false},
+                {id: 'c4', name: 'Дом', icon: 'fa-home', color: '#10b981', isCustom: false},
+                {id: 'c5', name: 'Развлечения', icon: 'fa-film', color: '#ec4899', isCustom: false},
+                {id: 'c6', name: 'Здоровье', icon: 'fa-heartbeat', color: '#ef4444', isCustom: false},
+                {id: 'c-loan', name: 'Кредиты и долги', icon: 'fa-landmark', color: '#64748b', isCustom: false},
+                {id: 'c7', name: 'Прочее', icon: 'fa-ellipsis-h', color: '#9ca3af', isCustom: false}
+            ],
+            income: [
+                {id: 'c8', name: 'Зарплата', icon: 'fa-money-bill-wave', color: '#10b981', isCustom: false},
+                {id: 'c9', name: 'Перевод', icon: 'fa-exchange-alt', color: '#3b82f6', isCustom: false},
+                {id: 'c10', name: 'Прочее', icon: 'fa-ellipsis-h', color: '#9ca3af', isCustom: false}
+            ]
+        };
+
+        let currentAddType = 'expense';
+        let selectedCategoryId = null;
+        let editingTransactionId = null;
+        
+        // Analytics state
+        let analyticsPeriod = 'month'; // 'day', 'month', 'year'
+        let analyticsDate = new Date();
+        let myChart = null;
+
+        // Modals state
+        let itemToDeleteId = null;
+        let itemToDeleteType = null;
+        let editingCategoryId = null;
+
+        // Custom Category State
+        let editorSelectedColor = '#3b82f6';
+        let editorSelectedIcon = 'fa-star';
+        
+        const availableColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#64748b', '#78716c'];
+        const availableIcons = ['fa-star', 'fa-heart', 'fa-car', 'fa-shopping-cart', 'fa-shopping-bag', 'fa-utensils', 'fa-coffee', 'fa-laptop', 'fa-mobile-alt', 'fa-gamepad', 'fa-music', 'fa-dumbbell', 'fa-paw', 'fa-gift', 'fa-tshirt', 'fa-home', 'fa-briefcase', 'fa-plane', 'fa-bus', 'fa-gas-pump', 'fa-film', 'fa-subway', 'fa-pills', 'fa-baby', 'fa-couch', 'fa-graduation-cap', 'fa-wrench', 'fa-tools', 'fa-bicycle', 'fa-camera'];
+
+        function showToast(message, isError = false) {
+            const toast = document.getElementById('toast-notification');
+            const toastMsg = document.getElementById('toast-message');
+            const icon = toast.querySelector('i');
+            
+            toastMsg.textContent = message;
+            
+            if (isError) {
+                icon.className = 'fas fa-exclamation-circle text-red-400 dark:text-red-500 mr-2 text-lg';
+            } else {
+                icon.className = 'fas fa-check-circle text-green-400 dark:text-green-500 mr-2 text-lg';
+            }
+
+            toast.classList.remove('-translate-y-24', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('-translate-y-24', 'opacity-0');
+            }, 3000);
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function exportData() {
+            const data = {
+                transactions: transactions,
+                loans: loans,
+                categories: categories,
+                templates: templates
+            };
+            const dataStr = JSON.stringify(data, null, 2);
+            const blob = new Blob([dataStr], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            
+            const date = new Date().toISOString().split('T')[0];
+            a.download = `finance_backup_${date}.json`;
+            a.href = url;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            closeSettingsModal();
+            showToast('Резервная копия скачана!');
+        }
+
+        function handleImportData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    
+                    if (data.transactions) transactions = data.transactions;
+                    if (data.loans) loans = data.loans;
+                    if (data.categories) categories = data.categories;
+                    if (data.templates) templates = data.templates;
+                    
+                    saveData();
+                    updateAllViews();
+                    closeSettingsModal();
+                    showToast('Данные успешно восстановлены!');
+                } catch (err) {
+                    closeSettingsModal();
+                    showToast('Ошибка: Неверный формат файла', true);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; // Reset input to allow selecting the same file again
+        }
+
+        window.onload = function() {
+            // Инициализация Telegram Mini App
+            if (tg && tg.initData) {
+                tg.ready();      // Сообщаем ТГ, что аппка загрузилась
+                tg.expand();     // Разворачиваем на весь экран
+                
+                // Подстраиваем тему под Telegram при запуске
+                if (tg.colorScheme === 'dark') {
+                    isDarkMode = true;
+                } else {
+                    isDarkMode = false;
+                }
+            }
+
+            initTheme();
+            updateAllViews();
+            document.getElementById('date-input').valueAsDate = new Date();
+        };
+
+        function saveData() {
+            localStorage.setItem('transactions', JSON.stringify(transactions));
+            localStorage.setItem('loans', JSON.stringify(loans));
+            localStorage.setItem('categories', JSON.stringify(categories));
+            localStorage.setItem('templates', JSON.stringify(templates));
+        }
+
+        function updateAllViews() {
+            renderHome();
+            renderHistory();
+            renderAnalytics();
+            renderLoans();
+        }
+
+        function initTheme() {
+            if (isDarkMode) document.documentElement.classList.add('dark');
+            else document.documentElement.classList.remove('dark');
+        }
+
+        function toggleTheme() {
+            hapticFeedback();
+            isDarkMode = !isDarkMode;
+            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+            initTheme();
+            renderAnalytics(); // Redraw chart for colors
+        }
+
+        function switchTab(tabId) {
+            hapticFeedback();
+            document.querySelectorAll('.screen-view').forEach(el => {
+                if (el.id !== 'add-screen') el.classList.add('hidden');
+            });
+            document.getElementById(`${tabId}-screen`).classList.remove('hidden');
+            document.getElementById('header-title').textContent = tabId === 'home' ? 'Мои Финансы' : 
+                                                                 tabId === 'history' ? 'История операций' : 
+                                                                 tabId === 'analytics' ? 'Аналитика' : 'Кредиты и долги';
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                const target = btn.getAttribute('data-target');
+                if (target === tabId) {
+                    btn.classList.remove('text-gray-400', 'dark:text-gray-500');
+                    btn.classList.add('text-blue-500');
+                } else {
+                    btn.classList.add('text-gray-400', 'dark:text-gray-500');
+                    btn.classList.remove('text-blue-500');
+                }
+            });
+
+            if (tabId === 'analytics') renderAnalytics();
+        }
+
+        function formatMoney(amount) {
+            return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(amount);
+        }
+
+        function generateId() {
+            return Date.now().toString(36) + Math.random().toString(36).substr(2);
+        }
+
+        function getCategoryById(id, type) {
+            const list = categories[type] || [];
+            return list.find(c => c.id === id) || { name: 'Неизвестно', icon: 'fa-question', color: '#9ca3af' };
+        }
+
+        function openAddScreen(txId = null) {
+            hapticFeedback();
+            editingTransactionId = txId;
+            const screen = document.getElementById('add-screen');
+            screen.classList.remove('hidden');
+            screen.classList.add('flex');
+            
+            if (txId) {
+                // Редактирование
+                const tx = transactions.find(t => t.id === txId);
+                if (tx) {
+                    document.getElementById('add-screen-title').textContent = 'Редактировать';
+                    document.getElementById('amount-input').value = tx.amount;
+                    document.getElementById('note-input').value = tx.note || '';
+                    document.getElementById('date-input').value = tx.date;
+                    setAddType(tx.type);
+                    selectedCategoryId = tx.categoryId;
+                    document.getElementById('save-template-btn').classList.add('hidden'); // Не показываем создание шаблона при ред.
+                }
+            } else {
+                // Новая
+                document.getElementById('add-screen-title').textContent = 'Новая операция';
+                document.getElementById('amount-input').value = '';
+                document.getElementById('note-input').value = '';
+                document.getElementById('date-input').valueAsDate = new Date();
+                document.getElementById('save-template-btn').classList.remove('hidden');
+                setAddType(currentAddType); // Reset UI to current type
+            }
+        }
+
+        function closeAddScreen() {
+            document.getElementById('add-screen').classList.add('hidden');
+            document.getElementById('add-screen').classList.remove('flex');
+        }
+
+        function setAddType(type) {
+            hapticFeedback();
+            currentAddType = type;
+            const expBtn = document.getElementById('type-expense');
+            const incBtn = document.getElementById('type-income');
+            
+            if (type === 'expense') {
+                expBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg shadow bg-white dark:bg-gray-700 text-expense';
+                incBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg text-gray-500';
+            } else {
+                incBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg shadow bg-white dark:bg-gray-700 text-income';
+                expBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg text-gray-500';
+            }
+            renderCategoriesGrid();
+            renderTemplatesList();
+        }
+
+        function selectCategory(id) {
+            selectedCategoryId = id;
+            document.querySelectorAll('.cat-item').forEach(el => {
+                el.classList.remove('ring-4', 'ring-blue-200', 'dark:ring-blue-900', 'scale-110');
+            });
+            const selected = document.getElementById(`cat-${id}`);
+            if(selected) selected.classList.add('ring-4', 'ring-blue-200', 'dark:ring-blue-900', 'scale-110');
+        }
+
+        function renderCategoriesGrid() {
+            const container = document.getElementById('categories-grid');
+            container.innerHTML = '';
+            const list = categories[currentAddType] || [];
+            
+            list.forEach(cat => {
+                const div = document.createElement('div');
+                div.className = 'flex flex-col items-center gap-1 cursor-pointer transition-transform';
+                div.onclick = () => selectCategory(cat.id);
+                div.innerHTML = `
+                    <div id="cat-${cat.id}" class="cat-item w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg transition-all" style="background-color: ${cat.color}">
+                        <i class="fas ${cat.icon}"></i>
+                    </div>
+                    <span class="text-[10px] text-gray-500 text-center w-full truncate px-1">${cat.name}</span>
+                `;
+                container.appendChild(div);
+            });
+            
+            if (!editingTransactionId && list.length > 0) {
+                selectCategory(list[0].id);
+            } else if (editingTransactionId) {
+                selectCategory(selectedCategoryId); // Re-select if editing
+            }
+        }
+
+        function saveTransaction() {
+            hapticFeedback();
+            const amountStr = document.getElementById('amount-input').value;
+            const amount = parseFloat(amountStr);
+            if (!amount || amount <= 0) return showToast('Введите корректную сумму', true);
+            if (!selectedCategoryId) return showToast('Выберите категорию', true);
+
+            const newTx = {
+                id: editingTransactionId || generateId(),
+                type: currentAddType,
+                amount: amount,
+                categoryId: selectedCategoryId,
+                date: document.getElementById('date-input').value,
+                note: document.getElementById('note-input').value,
+                timestamp: editingTransactionId ? transactions.find(t=>t.id === editingTransactionId).timestamp : Date.now()
+            };
+
+            if (editingTransactionId) {
+                const index = transactions.findIndex(t => t.id === editingTransactionId);
+                if(index !== -1) transactions[index] = newTx;
+            } else {
+                transactions.push(newTx);
+            }
+            
+            transactions.sort((a, b) => new Date(b.date) - new Date(a.date) || b.timestamp - a.timestamp);
+            
+            saveData();
+            updateAllViews();
+            closeAddScreen();
+        }
+
+        function renderTemplatesList() {
+            const container = document.getElementById('templates-list');
+            container.innerHTML = '';
+            
+            const relevantTemplates = templates.filter(t => t.type === currentAddType);
+            if (relevantTemplates.length === 0) {
+                container.innerHTML = '<span class="text-xs text-gray-400 italic py-2">Нет сохраненных шаблонов</span>';
+                return;
+            }
+
+            relevantTemplates.forEach(t => {
+                const cat = getCategoryById(t.categoryId, t.type);
+                const btn = document.createElement('button');
+                btn.className = 'shrink-0 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition';
+                btn.onclick = () => applyTemplate(t);
+                btn.innerHTML = `
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px]" style="background-color: ${cat.color}">
+                        <i class="fas ${cat.icon}"></i>
+                    </div>
+                    <div class="text-left">
+                        <div class="text-xs font-bold text-gray-800 dark:text-gray-200">${t.name}</div>
+                        <div class="text-[10px] text-gray-500">${t.amount} ₽</div>
+                    </div>
+                `;
+                container.appendChild(btn);
+            });
+        }
+
+        function applyTemplate(t) {
+            document.getElementById('amount-input').value = t.amount;
+            document.getElementById('note-input').value = t.note;
+            selectCategory(t.categoryId);
+        }
+
+        function saveAsTemplate() {
+            const amountStr = document.getElementById('amount-input').value;
+            const amount = parseFloat(amountStr);
+            if (!amount || amount <= 0) {
+                const amtInput = document.getElementById('amount-input');
+                amtInput.classList.add('text-red-500');
+                setTimeout(() => amtInput.classList.remove('text-red-500'), 800);
+                return;
+            }
+            
+            document.getElementById('template-name-input').value = '';
+            document.getElementById('save-template-modal').classList.remove('hidden');
+            setTimeout(() => document.getElementById('template-name-input').focus(), 100);
+        }
+
+        function closeSaveTemplateModal() {
+            document.getElementById('save-template-modal').classList.add('hidden');
+        }
+
+        function confirmSaveTemplate() {
+            const amountStr = document.getElementById('amount-input').value;
+            const amount = parseFloat(amountStr);
+            const name = document.getElementById('template-name-input').value.trim();
+            
+            if (!name) {
+                const nameInput = document.getElementById('template-name-input');
+                nameInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
+                setTimeout(() => nameInput.classList.remove('border-red-500', 'ring-1', 'ring-red-500'), 800);
+                return;
+            }
+
+            const tpl = {
+                id: generateId(),
+                name: name,
+                type: currentAddType,
+                amount: amount,
+                categoryId: selectedCategoryId,
+                note: document.getElementById('note-input').value
+            };
+            templates.push(tpl);
+            saveData();
+            renderTemplatesList();
+            closeSaveTemplateModal();
+        }
+
+        function openTemplatesManageModal() {
+            document.getElementById('templates-modal').classList.remove('hidden');
+            renderManageTemplatesList();
+        }
+        function closeTemplatesManageModal() {
+            document.getElementById('templates-modal').classList.add('hidden');
+            renderTemplatesList(); // refresh add screen
+        }
+
+        function renderManageTemplatesList() {
+            const container = document.getElementById('manage-templates-list');
+            container.innerHTML = '';
+            if (templates.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500 mt-4">Шаблонов нет</p>';
+                return;
+            }
+
+            templates.forEach(t => {
+                const cat = getCategoryById(t.categoryId, t.type);
+                const el = document.createElement('div');
+                el.className = 'flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700';
+                el.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}">
+                            <i class="fas ${cat.icon}"></i>
+                        </div>
+                        <div>
+                            <div class="font-bold text-sm">${t.name}</div>
+                            <div class="text-xs text-gray-500">${t.type === 'expense' ? 'Расход' : 'Доход'} • ${t.amount} ₽</div>
+                        </div>
+                    </div>
+                    <button onclick="promptDeleteTemplate('${t.id}')" class="p-2 text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function promptDeleteTemplate(id) {
+            openDeleteModal(id, 'template', 'Удалить шаблон?', 'Шаблон будет удален безвозвратно.');
+        }
+
+        function renderHome() {
+            const today = new Date();
+            const currentMonth = today.getMonth();
+            const currentYear = today.getFullYear();
+
+            let balance = 0;
+            let mIncome = 0;
+            let mExpense = 0;
+
+            transactions.forEach(t => {
+                const tDate = new Date(t.date);
+                if (t.type === 'income') balance += t.amount;
+                else balance -= t.amount;
+
+                if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear) {
+                    if (t.type === 'income') mIncome += t.amount;
+                    else mExpense += t.amount;
+                }
+            });
+
+            document.getElementById('total-balance').textContent = formatMoney(balance);
+            document.getElementById('month-income').textContent = formatMoney(mIncome);
+            document.getElementById('month-expense').textContent = formatMoney(mExpense);
+
+            const recentContainer = document.getElementById('recent-transactions');
+            recentContainer.innerHTML = '';
+            
+            transactions.slice(0, 5).forEach(t => {
+                recentContainer.appendChild(createTransactionElement(t));
+            });
+
+            if (transactions.length === 0) {
+                recentContainer.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">Нет операций</p>';
+            }
+        }
+
+        function renderHistory() {
+            const container = document.getElementById('history-list');
+            container.innerHTML = '';
+
+            if (transactions.length === 0) {
+                container.innerHTML = '<div class="text-center text-gray-400 mt-10"><i class="fas fa-box-open text-4xl mb-3"></i><p>История пуста</p></div>';
+                return;
+            }
+
+            const grouped = transactions.reduce((acc, t) => {
+                if (!acc[t.date]) acc[t.date] = [];
+                acc[t.date].push(t);
+                return acc;
+            }, {});
+
+            Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)).forEach(date => {
+                const dateObj = new Date(date);
+                const dateTitle = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+                
+                const groupDiv = document.createElement('div');
+                groupDiv.innerHTML = `<h4 class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 ml-2 sticky top-0 bg-gray-100 dark:bg-darkBg py-1 z-10">${dateTitle}</h4>`;
+                
+                grouped[date].forEach(t => {
+                    groupDiv.appendChild(createTransactionElement(t, true));
+                });
+                
+                container.appendChild(groupDiv);
+            });
+        }
+
+        function createTransactionElement(t, showControls = false) {
+            const cat = getCategoryById(t.categoryId, t.type);
+            const isExpense = t.type === 'expense';
+            const el = document.createElement('div');
+            el.className = 'flex justify-between items-center bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm mb-2 border border-gray-50 dark:border-gray-800';
+            
+            let controlsHTML = '';
+            if (showControls) {
+                controlsHTML = `
+                <div class="flex flex-col gap-2 ml-3 pl-3 border-l border-gray-100 dark:border-gray-700">
+                    <button onclick="openAddScreen('${t.id}')" class="text-gray-400 hover:text-blue-500"><i class="fas fa-pen"></i></button>
+                    <button onclick="promptDeleteTransaction('${t.id}')" class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                </div>`;
+            }
+
+            el.innerHTML = `
+                <div class="flex items-center gap-4 flex-1 min-w-0">
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg shrink-0" style="background-color: ${cat.color}">
+                        <i class="fas ${cat.icon}"></i>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <p class="font-bold text-gray-900 dark:text-gray-100 truncate">${cat.name}</p>
+                        ${t.note ? `<p class="text-xs text-gray-500 dark:text-gray-400 truncate">${t.note}</p>` : ''}
+                    </div>
+                </div>
+                <div class="text-right flex items-center shrink-0">
+                    <span class="font-bold ${isExpense ? 'text-gray-900 dark:text-gray-100' : 'text-income'}">
+                        ${isExpense ? '-' : '+'}${formatMoney(t.amount)}
+                    </span>
+                    ${controlsHTML}
+                </div>
+            `;
+            return el;
+        }
+
+        function setAnalyticsPeriod(period) {
+            analyticsPeriod = period;
+            ['day', 'month', 'year'].forEach(p => {
+                const btn = document.getElementById(`btn-period-${p}`);
+                if (p === period) {
+                    btn.className = 'flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white';
+                } else {
+                    btn.className = 'flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500';
+                }
+            });
+            renderAnalytics();
+        }
+
+        function changeAnalyticsDate(delta) {
+            if (analyticsPeriod === 'day') {
+                analyticsDate.setDate(analyticsDate.getDate() + delta);
+            } else if (analyticsPeriod === 'month') {
+                analyticsDate.setMonth(analyticsDate.getMonth() + delta);
+            } else if (analyticsPeriod === 'year') {
+                analyticsDate.setFullYear(analyticsDate.getFullYear() + delta);
+            }
+            renderAnalytics();
+        }
+
+        function onAnalyticsDateSelect(val) {
+            if (val) {
+                analyticsDate = new Date(val);
+                renderAnalytics();
+            }
+        }
+
+        function getDateLabel() {
+            const opts = {};
+            if (analyticsPeriod === 'day') {
+                opts.day = 'numeric'; opts.month = 'long'; opts.year = 'numeric';
+            } else if (analyticsPeriod === 'month') {
+                opts.month = 'long'; opts.year = 'numeric';
+            } else if (analyticsPeriod === 'year') {
+                opts.year = 'numeric';
+            }
+            return analyticsDate.toLocaleDateString('ru-RU', opts);
+        }
+
+        function filterTransactionsForAnalytics() {
+            return transactions.filter(t => {
+                if (t.type !== 'expense') return false;
+                const d = new Date(t.date);
+                if (analyticsPeriod === 'day') return d.toDateString() === analyticsDate.toDateString();
+                if (analyticsPeriod === 'month') return d.getMonth() === analyticsDate.getMonth() && d.getFullYear() === analyticsDate.getFullYear();
+                if (analyticsPeriod === 'year') return d.getFullYear() === analyticsDate.getFullYear();
+                return false;
+            });
+        }
+
+        function renderAnalytics() {
+            document.getElementById('analytics-date-display').textContent = getDateLabel();
+            // sync the hidden input date (approximate for month/year)
+            document.getElementById('analytics-date-input').value = analyticsDate.toISOString().split('T')[0];
+
+            const filtered = filterTransactionsForAnalytics();
+            let total = 0;
+            const catTotals = {};
+
+            filtered.forEach(t => {
+                total += t.amount;
+                catTotals[t.categoryId] = (catTotals[t.categoryId] || 0) + t.amount;
+            });
+
+            document.getElementById('chart-total').textContent = formatMoney(total);
+            const detailsContainer = document.getElementById('analytics-details');
+            detailsContainer.innerHTML = '';
+
+            const sortedCats = Object.keys(catTotals).sort((a, b) => catTotals[b] - catTotals[a]);
+            
+            const chartLabels = [];
+            const chartData = [];
+            const chartColors = [];
+
+            if (total === 0) {
+                detailsContainer.innerHTML = '<p class="text-center text-gray-400 py-4">В этом периоде расходов не было</p>';
+                chartLabels.push('Нет данных');
+                chartData.push(1);
+                chartColors.push(isDarkMode ? '#374151' : '#e5e7eb');
+            } else {
+                sortedCats.forEach(catId => {
+                    const cat = getCategoryById(catId, 'expense');
+                    const amount = catTotals[catId];
+                    const percent = ((amount / total) * 100).toFixed(1);
+
+                    chartLabels.push(cat.name);
+                    chartData.push(amount);
+                    chartColors.push(cat.color);
+
+                    const el = document.createElement('div');
+                    el.className = 'flex items-center justify-between bg-white dark:bg-darkCard p-3 rounded-2xl border border-gray-50 dark:border-gray-800';
+                    el.innerHTML = `
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}">
+                                <i class="fas ${cat.icon}"></i>
+                            </div>
+                            <div>
+                                <p class="font-bold text-sm">${cat.name}</p>
+                                <p class="text-xs text-gray-500">${percent}%</p>
+                            </div>
+                        </div>
+                        <span class="font-bold">${formatMoney(amount)}</span>
+                    `;
+                    detailsContainer.appendChild(el);
+                });
+            }
+            updateChart(chartLabels, chartData, chartColors);
+        }
+
+        function updateChart(labels, data, colors) {
+            const ctx = document.getElementById('expenseChart').getContext('2d');
+            if (myChart) myChart.destroy();
+
+            Chart.defaults.color = isDarkMode ? '#9ca3af' : '#6b7280';
+            
+            myChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 0,
+                        hoverOffset: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '75%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    if(labels[0] === 'Нет данных') return ' Нет данных';
+                                    let label = context.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    if (context.parsed !== null) {
+                                        label += new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(context.parsed);
+                                    }
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function openLoanModal() {
+            document.getElementById('loan-name').value = '';
+            document.getElementById('loan-total').value = '';
+            document.getElementById('loan-paid').value = '';
+            document.getElementById('loan-modal').classList.remove('hidden');
+        }
+        function closeLoanModal() {
+            document.getElementById('loan-modal').classList.add('hidden');
+        }
+        function saveLoan() {
+            const name = document.getElementById('loan-name').value;
+            const total = parseFloat(document.getElementById('loan-total').value);
+            const paid = parseFloat(document.getElementById('loan-paid').value) || 0;
+
+            if (!name || !total || total <= 0) return showToast('Заполните название и общую сумму корректно', true);
+
+            loans.push({
+                id: generateId(),
+                name: name,
+                totalAmount: total,
+                paidAmount: paid
+            });
+            
+            saveData();
+            renderLoans();
+            closeLoanModal();
+        }
+
+        function renderLoans() {
+            const container = document.getElementById('loans-list');
+            container.innerHTML = '';
+            
+            if (loans.length === 0) {
+                container.innerHTML = '<p class="text-center text-gray-500 mt-10">Нет активных кредитов или долгов</p>';
+                return;
+            }
+
+            loans.forEach(loan => {
+                const percent = Math.min(100, Math.round((loan.paidAmount / loan.totalAmount) * 100));
+                const remaining = loan.totalAmount - loan.paidAmount;
+
+                const el = document.createElement('div');
+                el.className = 'bg-white dark:bg-darkCard p-5 rounded-3xl shadow-sm border border-gray-50 dark:border-gray-800 relative';
+                el.innerHTML = `
+                    <button onclick="promptDeleteLoan('${loan.id}')" class="absolute top-4 right-4 text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                    <h3 class="font-bold text-lg mb-1">${loan.name}</h3>
+                    <p class="text-sm text-gray-500 mb-4">Осталось: <span class="font-bold text-gray-800 dark:text-gray-200">${formatMoney(remaining)}</span></p>
+                    
+                    <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-3 mb-2">
+                        <div class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
+                    </div>
+                    <div class="flex justify-between text-xs text-gray-500 mb-5">
+                        <span>Выплачено: ${formatMoney(loan.paidAmount)}</span>
+                        <span>Всего: ${formatMoney(loan.totalAmount)}</span>
+                    </div>
+
+                    <button onclick="addLoanPayment('${loan.id}')" class="w-full bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400 py-2.5 rounded-xl font-bold text-sm flex justify-center items-center">
+                        <i class="fas fa-check-circle mr-2"></i> Внести платеж
+                    </button>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function addLoanPayment(id) {
+            const loan = loans.find(l => l.id === id);
+            if (!loan) return;
+            const amountStr = prompt(`Введите сумму платежа для "${loan.name}":`);
+            const amount = parseFloat(amountStr);
+            if (!amount || amount <= 0) return;
+
+            loan.paidAmount += amount;
+            
+            // Add as expense transaction automatically
+            transactions.push({
+                id: generateId(),
+                type: 'expense',
+                amount: amount,
+                categoryId: 'c-loan', // System category for loans
+                date: new Date().toISOString().split('T')[0],
+                note: `Платеж: ${loan.name}`,
+                timestamp: Date.now()
+            });
+
+            transactions.sort((a, b) => new Date(b.date) - new Date(a.date) || b.timestamp - a.timestamp);
+            
+            saveData();
+            updateAllViews();
+        }
+
+        function openManageCategoriesModal() {
+            document.getElementById('manage-cat-type-label').textContent = currentAddType === 'expense' ? 'Расход' : 'Доход';
+            document.getElementById('manage-categories-modal').classList.remove('hidden');
+            renderManageCategoriesList();
+        }
+        function closeManageCategoriesModal() {
+            document.getElementById('manage-categories-modal').classList.add('hidden');
+            renderCategoriesGrid(); // Refresh grid on main form
+        }
+
+        function renderManageCategoriesList() {
+            const container = document.getElementById('manage-categories-list');
+            container.innerHTML = '';
+            const list = categories[currentAddType] || [];
+            
+            list.forEach(cat => {
+                const el = document.createElement('div');
+                el.className = 'flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-2 border border-gray-100 dark:border-gray-700';
+                el.innerHTML = `
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}">
+                            <i class="fas ${cat.icon}"></i>
+                        </div>
+                        <span class="font-bold text-sm">${cat.name}</span>
+                    </div>
+                    ${cat.isCustom ? `
+                    <div class="flex gap-1 shrink-0">
+                        <button onclick="openEditCategoryModal('${cat.id}')" class="p-2 text-gray-400 hover:text-blue-500 transition"><i class="fas fa-pen"></i></button>
+                        <button onclick="promptDeleteCategory('${cat.id}')" class="p-2 text-gray-400 hover:text-red-500 transition"><i class="fas fa-trash"></i></button>
+                    </div>
+                    ` : `<div class="text-xs text-gray-400 dark:text-gray-500 px-2">Базовая</div>`}
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        function openEditCategoryModal(id = null) {
+            editingCategoryId = id;
+            document.getElementById('edit-cat-modal-title').textContent = id ? 'Редактировать' : 'Новая категория';
+            
+            if (id) {
+                const cat = categories[currentAddType].find(c => c.id === id);
+                if (cat) {
+                    document.getElementById('edit-cat-name').value = cat.name;
+                    editorSelectedColor = cat.color;
+                    editorSelectedIcon = cat.icon;
+                }
+            } else {
+                document.getElementById('edit-cat-name').value = '';
+                editorSelectedColor = currentAddType === 'expense' ? '#ef4444' : '#10b981';
+                editorSelectedIcon = 'fa-star';
+            }
+            
+            renderColorPicker();
+            renderIconPicker();
+            document.getElementById('edit-category-modal').classList.remove('hidden');
+        }
+
+        function renderColorPicker() {
+            const container = document.getElementById('edit-cat-colors');
+            container.innerHTML = '';
+            availableColors.forEach(color => {
+                const div = document.createElement('div');
+                const isSelected = color === editorSelectedColor;
+                div.className = `w-8 h-8 rounded-full cursor-pointer flex items-center justify-center transition-transform ${isSelected ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-gray-900 scale-110' : 'hover:scale-110'}`;
+                div.style.backgroundColor = color;
+                if (isSelected) {
+                    div.innerHTML = '<i class="fas fa-check text-white text-xs drop-shadow-md"></i>';
+                }
+                div.onclick = () => {
+                    editorSelectedColor = color;
+                    renderColorPicker();
+                };
+                container.appendChild(div);
+            });
+        }
+
+        function renderIconPicker() {
+            const container = document.getElementById('edit-cat-icons');
+            container.innerHTML = '';
+            availableIcons.forEach(icon => {
+                const isSelected = icon === editorSelectedIcon;
+                const div = document.createElement('div');
+                div.className = `w-10 h-10 rounded-2xl cursor-pointer flex items-center justify-center text-xl transition-all ${isSelected ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 ring-2 ring-blue-500 scale-110' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`;
+                div.innerHTML = `<i class="fas ${icon}"></i>`;
+                div.onclick = () => {
+                    editorSelectedIcon = icon;
+                    renderIconPicker();
+                };
+                container.appendChild(div);
+            });
+        }
+
+        function closeEditCategoryModal() {
+            document.getElementById('edit-category-modal').classList.add('hidden');
+        }
+
+        function saveCategory() {
+            const name = document.getElementById('edit-cat-name').value.trim();
+
+            if (!name) return showToast('Введите название', true);
+
+            const newCat = {
+                id: editingCategoryId || generateId(),
+                name: name,
+                color: editorSelectedColor,
+                icon: editorSelectedIcon,
+                isCustom: true
+            };
+
+            if (!categories[currentAddType]) categories[currentAddType] = [];
+
+            if (editingCategoryId) {
+                const index = categories[currentAddType].findIndex(c => c.id === editingCategoryId);
+                if (index !== -1) categories[currentAddType][index] = newCat;
+            } else {
+                categories[currentAddType].push(newCat);
+            }
+
+            saveData();
+            closeEditCategoryModal();
+            renderManageCategoriesList(); 
+        }
+
+        function openDeleteModal(id, type, title, text) {
+            itemToDeleteId = id;
+            itemToDeleteType = type;
+            document.getElementById('delete-modal-title').textContent = title;
+            document.getElementById('delete-modal-text').textContent = text;
+            document.getElementById('delete-modal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            document.getElementById('delete-modal').classList.add('hidden');
+            itemToDeleteId = null;
+            itemToDeleteType = null;
+        }
+
+        function promptDeleteTransaction(id) {
+            openDeleteModal(id, 'transaction', 'Удалить операцию?', 'Сумма будет вычтена из вашей статистики.');
+        }
+
+        function promptDeleteLoan(id) {
+            openDeleteModal(id, 'loan', 'Удалить запись?', 'Вся история платежей по этому долгу останется в расходах, но карточка долга исчезнет.');
+        }
+
+        function promptDeleteCategory(id) {
+            openDeleteModal(id, 'category', 'Удалить категорию?', 'Ранее добавленные операции сохранятся, но категория пропадет из списка выбора.');
+        }
+
+        document.getElementById('confirm-delete-btn').addEventListener('click', () => {
+            if (itemToDeleteId && itemToDeleteType) {
+                if (itemToDeleteType === 'transaction') {
+                    transactions = transactions.filter(t => t.id !== itemToDeleteId);
+                    updateAllViews();
+                } else if (itemToDeleteType === 'loan') {
+                    loans = loans.filter(l => l.id !== itemToDeleteId);
+                    renderLoans();
+                } else if (itemToDeleteType === 'category') {
+                    categories[currentAddType] = categories[currentAddType].filter(c => c.id !== itemToDeleteId);
+                    renderManageCategoriesList();
+                } else if (itemToDeleteType === 'template') {
+                    templates = templates.filter(t => t.id !== itemToDeleteId);
+                    renderManageTemplatesList();
+                }
+                saveData(); 
+                closeDeleteModal();
+            }
+        });
+
+    </script>
+</body>
+</html>
