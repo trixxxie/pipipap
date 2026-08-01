@@ -8,18 +8,311 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
     <script>
-        // Добавляем инициализацию Telegram
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#121212',
+                        darkCard: '#1e1e1e',
+                        income: '#10b981',
+                        expense: '#ef4444'
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { -webkit-tap-highlight-color: transparent; }
+        /* Hide scrollbar for clean UI */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-100 dark:bg-darkBg text-gray-900 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
+
+    <!-- Header -->
+    <header class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm z-10 shrink-0">
+        <h1 id="header-title" class="text-xl font-bold">Мои Финансы</h1>
+        <div class="flex gap-4 items-center">
+            <button onclick="toggleTheme()" class="text-gray-500 dark:text-gray-400 text-xl"><i class="fas fa-moon dark:fa-sun"></i></button>
+            <button onclick="openSettingsModal()" class="text-gray-500 dark:text-gray-400 text-xl"><i class="fas fa-cog"></i></button>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-y-auto no-scrollbar relative pb-20">
+        <!-- Home Screen -->
+        <div id="home-screen" class="screen-view p-4">
+            <!-- Balance Card -->
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl p-6 text-white shadow-lg mb-6">
+                <p class="text-sm opacity-80 mb-1">Общий баланс</p>
+                <h2 id="total-balance" class="text-3xl font-bold mb-4">0 ₽</h2>
+                <div class="flex justify-between border-t border-white/20 pt-4">
+                    <div>
+                        <p class="text-xs opacity-80"><i class="fas fa-arrow-down mr-1"></i>Доход за месяц</p>
+                        <p id="month-income" class="font-bold">0 ₽</p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs opacity-80"><i class="fas fa-arrow-up mr-1"></i>Расход за месяц</p>
+                        <p id="month-expense" class="font-bold">0 ₽</p>
+                    </div>
+                </div>
+            </div>
+            <div class="flex justify-between items-end mb-4">
+                <h3 class="font-bold text-lg">Последние операции</h3>
+                <button onclick="switchTab('history')" class="text-blue-500 text-sm">Все</button>
+            </div>
+            <div id="recent-transactions"></div>
+        </div>
+
+        <!-- History Screen -->
+        <div id="history-screen" class="screen-view p-4 hidden">
+            <div id="history-list"></div>
+        </div>
+
+        <!-- Analytics Screen -->
+        <div id="analytics-screen" class="screen-view p-4 hidden flex flex-col h-full">
+            <div class="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl mb-4 shrink-0">
+                <button id="btn-period-day" onclick="setAnalyticsPeriod('day')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">День</button>
+                <button id="btn-period-month" onclick="setAnalyticsPeriod('month')" class="flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white">Месяц</button>
+                <button id="btn-period-year" onclick="setAnalyticsPeriod('year')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">Год</button>
+            </div>
+            <div class="flex justify-between items-center mb-6 shrink-0 relative">
+                <button onclick="changeAnalyticsDate(-1)" class="p-2 text-gray-500"><i class="fas fa-chevron-left"></i></button>
+                <label class="font-bold text-lg cursor-pointer relative flex items-center justify-center">
+                    <span id="analytics-date-display">...</span>
+                    <input type="date" id="analytics-date-input" onchange="onAnalyticsDateSelect(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                </label>
+                <button onclick="changeAnalyticsDate(1)" class="p-2 text-gray-500"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            <div class="relative h-48 mb-6 shrink-0 flex items-center justify-center">
+                <canvas id="expenseChart"></canvas>
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span class="text-xs text-gray-500">Всего</span>
+                    <span id="chart-total" class="font-bold text-xl">0 ₽</span>
+                </div>
+            </div>
+            <div id="analytics-details" class="flex-1 overflow-y-auto space-y-2 pb-6"></div>
+        </div>
+
+        <!-- Loans Screen -->
+        <div id="loans-screen" class="screen-view p-4 hidden">
+            <button onclick="openLoanModal()" class="w-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 py-3 rounded-xl font-bold mb-4 flex justify-center items-center gap-2">
+                <i class="fas fa-plus-circle"></i> Добавить кредит / долг
+            </button>
+            <div id="loans-list" class="space-y-4"></div>
+        </div>
+    </main>
+
+    <!-- Bottom Navigation -->
+    <nav class="bg-white dark:bg-darkCard shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex justify-around p-2 pb-safe absolute bottom-0 w-full z-20 shrink-0 border-t border-gray-100 dark:border-gray-800">
+        <button onclick="switchTab('home')" data-target="home" class="nav-btn text-blue-500 flex flex-col items-center p-2 w-16">
+            <i class="fas fa-wallet text-xl mb-1"></i>
+            <span class="text-[10px]">Главная</span>
+        </button>
+        <button onclick="switchTab('history')" data-target="history" class="nav-btn text-gray-400 dark:text-gray-500 flex flex-col items-center p-2 w-16">
+            <i class="fas fa-list text-xl mb-1"></i>
+            <span class="text-[10px]">История</span>
+        </button>
+        
+        <div class="relative -top-6">
+            <button onclick="openAddScreen()" class="bg-blue-500 text-white w-14 h-14 rounded-full shadow-lg flex justify-center items-center text-2xl transform transition active:scale-95">
+                <i class="fas fa-plus"></i>
+            </button>
+        </div>
+
+        <button onclick="switchTab('analytics')" data-target="analytics" class="nav-btn text-gray-400 dark:text-gray-500 flex flex-col items-center p-2 w-16">
+            <i class="fas fa-chart-pie text-xl mb-1"></i>
+            <span class="text-[10px]">Аналитика</span>
+        </button>
+        <button onclick="switchTab('loans')" data-target="loans" class="nav-btn text-gray-400 dark:text-gray-500 flex flex-col items-center p-2 w-16">
+            <i class="fas fa-landmark text-xl mb-1"></i>
+            <span class="text-[10px]">Кредиты</span>
+        </button>
+    </nav>
+
+    <!-- Add/Edit Transaction Screen (Full Screen Overlay) -->
+    <div id="add-screen" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-30 hidden flex-col">
+        <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm">
+            <button onclick="closeAddScreen()" class="text-gray-500"><i class="fas fa-times text-xl"></i></button>
+            <h2 id="add-screen-title" class="text-lg font-bold">Новая операция</h2>
+            <button id="save-template-btn" onclick="saveAsTemplate()" class="text-yellow-500"><i class="fas fa-star text-xl"></i></button>
+        </div>
+        
+        <div class="flex-1 overflow-y-auto p-4 space-y-6">
+            <!-- Amount -->
+            <div class="bg-white dark:bg-darkCard rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800 flex items-center justify-center">
+                <input type="number" id="amount-input" placeholder="0" class="w-full text-center text-4xl font-bold bg-transparent outline-none dark:text-white placeholder-gray-300 dark:placeholder-gray-600 transition-colors">
+            </div>
+
+            <!-- Type -->
+            <div class="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl">
+                <button id="type-expense" onclick="setAddType('expense')" class="flex-1 py-2 text-sm font-bold rounded-lg shadow bg-white dark:bg-gray-700 text-expense">Расход</button>
+                <button id="type-income" onclick="setAddType('income')" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-500">Доход</button>
+            </div>
+
+            <!-- Templates strip -->
+            <div>
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-sm font-bold text-gray-500">Шаблоны</span>
+                    <button onclick="openTemplatesManageModal()" class="text-xs text-blue-500">Настроить</button>
+                </div>
+                <div id="templates-list" class="flex gap-3 overflow-x-auto no-scrollbar pb-2"></div>
+            </div>
+
+            <!-- Categories -->
+            <div>
+                <div class="flex justify-between items-center mb-4">
+                    <span class="text-sm font-bold text-gray-500">Категория</span>
+                    <button onclick="openManageCategoriesModal()" class="text-xs text-blue-500">Настроить</button>
+                </div>
+                <div id="categories-grid" class="grid grid-cols-4 gap-y-4 gap-x-2"></div>
+            </div>
+
+            <!-- Date & Note -->
+            <div class="space-y-4">
+                <div class="flex items-center bg-white dark:bg-darkCard rounded-xl p-3 shadow-sm border border-gray-50 dark:border-gray-800">
+                    <i class="fas fa-calendar text-gray-400 w-8 text-center"></i>
+                    <input type="date" id="date-input" class="w-full bg-transparent outline-none text-gray-700 dark:text-gray-200">
+                </div>
+                <div class="flex items-center bg-white dark:bg-darkCard rounded-xl p-3 shadow-sm border border-gray-50 dark:border-gray-800">
+                    <i class="fas fa-comment text-gray-400 w-8 text-center"></i>
+                    <input type="text" id="note-input" placeholder="Заметка" class="w-full bg-transparent outline-none text-gray-700 dark:text-gray-200">
+                </div>
+            </div>
+        </div>
+
+        <div class="p-4 bg-white dark:bg-darkCard shrink-0">
+            <button onclick="saveTransaction()" class="w-full bg-blue-500 text-white font-bold text-lg py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">
+                Сохранить
+            </button>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
+            <h3 class="text-lg font-bold mb-4">Настройки</h3>
+            <div class="space-y-3">
+                <button onclick="exportData()" class="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition border border-gray-100 dark:border-gray-700">
+                    <i class="fas fa-download text-blue-500"></i>
+                    <span class="font-medium text-left">Экспорт данных<br><span class="text-xs text-gray-400">Сохранить резервную копию</span></span>
+                </button>
+                <label class="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer border border-gray-100 dark:border-gray-700">
+                    <i class="fas fa-upload text-green-500"></i>
+                    <span class="font-medium text-left">Импорт данных<br><span class="text-xs text-gray-400">Загрузить из файла</span></span>
+                    <input type="file" onchange="handleImportData(event)" accept=".json" class="hidden">
+                </label>
+            </div>
+            <button onclick="closeSettingsModal()" class="w-full mt-6 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Закрыть</button>
+        </div>
+    </div>
+
+    <!-- Loan Modal -->
+    <div id="loan-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
+            <h3 class="text-lg font-bold mb-4">Новый долг / кредит</h3>
+            <div class="space-y-4 mb-6">
+                <input type="text" id="loan-name" placeholder="Название (например, Ипотека)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="number" id="loan-total" placeholder="Общая сумма" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+                <input type="number" id="loan-paid" placeholder="Уже выплачено (по умолчанию 0)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div class="flex gap-3">
+                <button onclick="closeLoanModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
+                <button onclick="saveLoan()" class="flex-1 py-3 bg-blue-500 rounded-xl font-bold text-white">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Categories Modal -->
+    <div id="manage-categories-modal" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-40 hidden flex-col">
+        <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm shrink-0">
+            <button onclick="closeManageCategoriesModal()" class="text-gray-500"><i class="fas fa-arrow-left text-xl"></i></button>
+            <h2 class="text-lg font-bold">Категории: <span id="manage-cat-type-label"></span></h2>
+            <button onclick="openEditCategoryModal()" class="text-blue-500"><i class="fas fa-plus text-xl"></i></button>
+        </div>
+        <div id="manage-categories-list" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+    </div>
+
+    <!-- Edit/Add Category Modal -->
+    <div id="edit-category-modal" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-50 hidden flex-col">
+        <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm shrink-0">
+            <button onclick="closeEditCategoryModal()" class="text-gray-500"><i class="fas fa-arrow-left text-xl"></i></button>
+            <h2 id="edit-cat-modal-title" class="text-lg font-bold">Новая категория</h2>
+            <button onclick="saveCategory()" class="text-blue-500 font-bold">Готово</button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-4 space-y-6">
+            <div class="bg-white dark:bg-darkCard rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800">
+                <input type="text" id="edit-cat-name" placeholder="Название категории" class="w-full text-center text-xl font-bold bg-transparent outline-none">
+            </div>
+            <div>
+                <p class="text-sm font-bold text-gray-500 mb-3 ml-1">Цвет</p>
+                <div id="edit-cat-colors" class="grid grid-cols-8 gap-3 bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm border border-gray-50 dark:border-gray-800"></div>
+            </div>
+            <div>
+                <p class="text-sm font-bold text-gray-500 mb-3 ml-1">Иконка</p>
+                <div id="edit-cat-icons" class="grid grid-cols-5 gap-3 bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm max-h-64 overflow-y-auto border border-gray-50 dark:border-gray-800"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manage Templates Modal -->
+    <div id="templates-modal" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-40 hidden flex-col">
+         <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm shrink-0">
+            <button onclick="closeTemplatesManageModal()" class="text-gray-500"><i class="fas fa-arrow-left text-xl"></i></button>
+            <h2 class="text-lg font-bold">Шаблоны</h2>
+            <div class="w-6"></div>
+        </div>
+        <div id="manage-templates-list" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+    </div>
+
+    <!-- Save Template Modal -->
+    <div id="save-template-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
+            <h3 class="text-lg font-bold mb-2">Сохранить как шаблон</h3>
+            <p class="text-sm text-gray-500 mb-4">Текущая сумма и категория будут сохранены для быстрого доступа.</p>
+            <input type="text" id="template-name-input" placeholder="Название (напр. Кофе)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 mb-6 transition-colors">
+            <div class="flex gap-3">
+                <button onclick="closeSaveTemplateModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
+                <button onclick="confirmSaveTemplate()" class="flex-1 py-3 bg-blue-500 rounded-xl font-bold text-white">Сохранить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Confirm Delete Modal -->
+    <div id="delete-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4">
+        <div class="bg-white dark:bg-darkCard w-full max-w-xs rounded-3xl p-6 shadow-xl text-center">
+            <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 flex items-center justify-center text-3xl mx-auto mb-4">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <h3 id="delete-modal-title" class="text-lg font-bold mb-2">Удалить?</h3>
+            <p id="delete-modal-text" class="text-sm text-gray-500 mb-6">Это действие нельзя отменить.</p>
+            <div class="flex gap-3">
+                <button onclick="closeDeleteModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
+                <button id="confirm-delete-btn" class="flex-1 py-3 bg-red-500 rounded-xl font-bold text-white">Удалить</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast-notification" class="fixed top-4 left-1/2 -translate-x-1/2 bg-white dark:bg-darkCard shadow-lg rounded-full px-4 py-3 flex items-center z-[70] transition-all duration-300 transform -translate-y-24 opacity-0 pointer-events-none">
+        <i class="fas fa-check-circle text-green-400 dark:text-green-500 mr-2 text-lg"></i>
+        <span id="toast-message" class="text-sm font-medium text-gray-800 dark:text-gray-200">Успешно</span>
+    </div>
+
+    <script>
         const tg = window.Telegram.WebApp;
 
-        // Вспомогательная функция для вибрации (если запущено в ТГ)
         function hapticFeedback() {
             if (tg && tg.HapticFeedback) {
                 tg.HapticFeedback.impactOccurred('light');
             }
         }
 
-        // State
+        // App State
         let transactions = JSON.parse(localStorage.getItem('transactions')) || [];
         let loans = JSON.parse(localStorage.getItem('loans')) || [];
         let templates = JSON.parse(localStorage.getItem('templates')) || [];
@@ -47,12 +340,10 @@
         let selectedCategoryId = null;
         let editingTransactionId = null;
         
-        // Analytics state
-        let analyticsPeriod = 'month'; // 'day', 'month', 'year'
+        // Analytics & UI State
+        let analyticsPeriod = 'month';
         let analyticsDate = new Date();
         let myChart = null;
-
-        // Modals state
         let itemToDeleteId = null;
         let itemToDeleteType = null;
         let editingCategoryId = null;
@@ -70,7 +361,6 @@
             const icon = toast.querySelector('i');
             
             toastMsg.textContent = message;
-            
             if (isError) {
                 icon.className = 'fas fa-exclamation-circle text-red-400 dark:text-red-500 mr-2 text-lg';
             } else {
@@ -86,88 +376,24 @@
             }, 3000);
         }
 
-        function openSettingsModal() {
-            document.getElementById('settings-modal').classList.remove('hidden');
-        }
-
-        function closeSettingsModal() {
-            document.getElementById('settings-modal').classList.add('hidden');
-        }
-
-        function exportData() {
-            const data = {
-                transactions: transactions,
-                loans: loans,
-                categories: categories,
-                templates: templates
-            };
-            const dataStr = JSON.stringify(data, null, 2);
-            const blob = new Blob([dataStr], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            
-            const date = new Date().toISOString().split('T')[0];
-            a.download = `finance_backup_${date}.json`;
-            a.href = url;
-            a.click();
-            URL.revokeObjectURL(url);
-            
-            closeSettingsModal();
-            showToast('Резервная копия скачана!');
-        }
-
-        function handleImportData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    
-                    if (data.transactions) transactions = data.transactions;
-                    if (data.loans) loans = data.loans;
-                    if (data.categories) categories = data.categories;
-                    if (data.templates) templates = data.templates;
-                    
-                    saveData();
-                    updateAllViews();
-                    closeSettingsModal();
-                    showToast('Данные успешно восстановлены!');
-                } catch (err) {
-                    closeSettingsModal();
-                    showToast('Ошибка: Неверный формат файла', true);
-                }
-            };
-            reader.readAsText(file);
-            event.target.value = ''; // Reset input to allow selecting the same file again
-        }
-
-        window.onload = function() {
-            // Инициализация Telegram Mini App
-            if (tg && tg.initData) {
-                tg.ready();      // Сообщаем ТГ, что аппка загрузилась
-                tg.expand();     // Разворачиваем на весь экран
-                
-                // Подстраиваем тему под Telegram при запуске
-                if (tg.colorScheme === 'dark') {
-                    isDarkMode = true;
-                } else {
-                    isDarkMode = false;
-                }
-            }
-
-            initTheme();
-            updateAllViews();
-            document.getElementById('date-input').valueAsDate = new Date();
-        };
-
         function saveData() {
             localStorage.setItem('transactions', JSON.stringify(transactions));
             localStorage.setItem('loans', JSON.stringify(loans));
             localStorage.setItem('categories', JSON.stringify(categories));
             localStorage.setItem('templates', JSON.stringify(templates));
         }
+
+        window.onload = function() {
+            if (tg && tg.initData) {
+                tg.ready();
+                tg.expand();
+                if (tg.colorScheme === 'dark') isDarkMode = true;
+                else isDarkMode = false;
+            }
+            initTheme();
+            updateAllViews();
+            document.getElementById('date-input').valueAsDate = new Date();
+        };
 
         function updateAllViews() {
             renderHome();
@@ -186,31 +412,7 @@
             isDarkMode = !isDarkMode;
             localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
             initTheme();
-            renderAnalytics(); // Redraw chart for colors
-        }
-
-        function switchTab(tabId) {
-            hapticFeedback();
-            document.querySelectorAll('.screen-view').forEach(el => {
-                if (el.id !== 'add-screen') el.classList.add('hidden');
-            });
-            document.getElementById(`${tabId}-screen`).classList.remove('hidden');
-            document.getElementById('header-title').textContent = tabId === 'home' ? 'Мои Финансы' : 
-                                                                 tabId === 'history' ? 'История операций' : 
-                                                                 tabId === 'analytics' ? 'Аналитика' : 'Кредиты и долги';
-            
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                const target = btn.getAttribute('data-target');
-                if (target === tabId) {
-                    btn.classList.remove('text-gray-400', 'dark:text-gray-500');
-                    btn.classList.add('text-blue-500');
-                } else {
-                    btn.classList.add('text-gray-400', 'dark:text-gray-500');
-                    btn.classList.remove('text-blue-500');
-                }
-            });
-
-            if (tabId === 'analytics') renderAnalytics();
+            renderAnalytics(); // Refresh chart colors
         }
 
         function formatMoney(amount) {
@@ -226,6 +428,68 @@
             return list.find(c => c.id === id) || { name: 'Неизвестно', icon: 'fa-question', color: '#9ca3af' };
         }
 
+        function switchTab(tabId) {
+            hapticFeedback();
+            document.querySelectorAll('.screen-view').forEach(el => {
+                if (el.id !== 'add-screen') el.classList.add('hidden');
+            });
+            document.getElementById(`${tabId}-screen`).classList.remove('hidden');
+            
+            const titles = { home: 'Мои Финансы', history: 'История операций', analytics: 'Аналитика', loans: 'Кредиты и долги' };
+            document.getElementById('header-title').textContent = titles[tabId];
+            
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                if (btn.getAttribute('data-target') === tabId) {
+                    btn.classList.remove('text-gray-400', 'dark:text-gray-500');
+                    btn.classList.add('text-blue-500');
+                } else {
+                    btn.classList.add('text-gray-400', 'dark:text-gray-500');
+                    btn.classList.remove('text-blue-500');
+                }
+            });
+            if (tabId === 'analytics') renderAnalytics();
+        }
+
+        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
+        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+
+        function exportData() {
+            const data = { transactions, loans, categories, templates };
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.download = `finance_backup_${new Date().toISOString().split('T')[0]}.json`;
+            a.href = url;
+            a.click();
+            URL.revokeObjectURL(url);
+            closeSettingsModal();
+            showToast('Резервная копия сохранена!');
+        }
+
+        function handleImportData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    if (data.transactions) transactions = data.transactions;
+                    if (data.loans) loans = data.loans;
+                    if (data.categories) categories = data.categories;
+                    if (data.templates) templates = data.templates;
+                    saveData();
+                    updateAllViews();
+                    closeSettingsModal();
+                    showToast('Данные восстановлены!');
+                } catch (err) {
+                    closeSettingsModal();
+                    showToast('Ошибка чтения файла', true);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = ''; 
+        }
+
         function openAddScreen(txId = null) {
             hapticFeedback();
             editingTransactionId = txId;
@@ -234,7 +498,6 @@
             screen.classList.add('flex');
             
             if (txId) {
-                // Редактирование
                 const tx = transactions.find(t => t.id === txId);
                 if (tx) {
                     document.getElementById('add-screen-title').textContent = 'Редактировать';
@@ -243,16 +506,15 @@
                     document.getElementById('date-input').value = tx.date;
                     setAddType(tx.type);
                     selectedCategoryId = tx.categoryId;
-                    document.getElementById('save-template-btn').classList.add('hidden'); // Не показываем создание шаблона при ред.
+                    document.getElementById('save-template-btn').classList.add('hidden');
                 }
             } else {
-                // Новая
                 document.getElementById('add-screen-title').textContent = 'Новая операция';
                 document.getElementById('amount-input').value = '';
                 document.getElementById('note-input').value = '';
                 document.getElementById('date-input').valueAsDate = new Date();
                 document.getElementById('save-template-btn').classList.remove('hidden');
-                setAddType(currentAddType); // Reset UI to current type
+                setAddType(currentAddType);
             }
         }
 
@@ -280,9 +542,7 @@
 
         function selectCategory(id) {
             selectedCategoryId = id;
-            document.querySelectorAll('.cat-item').forEach(el => {
-                el.classList.remove('ring-4', 'ring-blue-200', 'dark:ring-blue-900', 'scale-110');
-            });
+            document.querySelectorAll('.cat-item').forEach(el => el.classList.remove('ring-4', 'ring-blue-200', 'dark:ring-blue-900', 'scale-110'));
             const selected = document.getElementById(`cat-${id}`);
             if(selected) selected.classList.add('ring-4', 'ring-blue-200', 'dark:ring-blue-900', 'scale-110');
         }
@@ -305,18 +565,14 @@
                 container.appendChild(div);
             });
             
-            if (!editingTransactionId && list.length > 0) {
-                selectCategory(list[0].id);
-            } else if (editingTransactionId) {
-                selectCategory(selectedCategoryId); // Re-select if editing
-            }
+            if (!editingTransactionId && list.length > 0) selectCategory(list[0].id);
+            else if (editingTransactionId) selectCategory(selectedCategoryId);
         }
 
         function saveTransaction() {
             hapticFeedback();
-            const amountStr = document.getElementById('amount-input').value;
-            const amount = parseFloat(amountStr);
-            if (!amount || amount <= 0) return showToast('Введите корректную сумму', true);
+            const amount = parseFloat(document.getElementById('amount-input').value);
+            if (!amount || amount <= 0) return showToast('Введите сумму', true);
             if (!selectedCategoryId) return showToast('Выберите категорию', true);
 
             const newTx = {
@@ -337,7 +593,6 @@
             }
             
             transactions.sort((a, b) => new Date(b.date) - new Date(a.date) || b.timestamp - a.timestamp);
-            
             saveData();
             updateAllViews();
             closeAddScreen();
@@ -346,10 +601,10 @@
         function renderTemplatesList() {
             const container = document.getElementById('templates-list');
             container.innerHTML = '';
-            
             const relevantTemplates = templates.filter(t => t.type === currentAddType);
+            
             if (relevantTemplates.length === 0) {
-                container.innerHTML = '<span class="text-xs text-gray-400 italic py-2">Нет сохраненных шаблонов</span>';
+                container.innerHTML = '<span class="text-xs text-gray-400 italic py-2">Нет шаблонов</span>';
                 return;
             }
 
@@ -357,11 +612,13 @@
                 const cat = getCategoryById(t.categoryId, t.type);
                 const btn = document.createElement('button');
                 btn.className = 'shrink-0 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition';
-                btn.onclick = () => applyTemplate(t);
+                btn.onclick = () => {
+                    document.getElementById('amount-input').value = t.amount;
+                    document.getElementById('note-input').value = t.note;
+                    selectCategory(t.categoryId);
+                };
                 btn.innerHTML = `
-                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px]" style="background-color: ${cat.color}">
-                        <i class="fas ${cat.icon}"></i>
-                    </div>
+                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px]" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
                     <div class="text-left">
                         <div class="text-xs font-bold text-gray-800 dark:text-gray-200">${t.name}</div>
                         <div class="text-[10px] text-gray-500">${t.amount} ₽</div>
@@ -371,64 +628,48 @@
             });
         }
 
-        function applyTemplate(t) {
-            document.getElementById('amount-input').value = t.amount;
-            document.getElementById('note-input').value = t.note;
-            selectCategory(t.categoryId);
-        }
-
         function saveAsTemplate() {
-            const amountStr = document.getElementById('amount-input').value;
-            const amount = parseFloat(amountStr);
+            const amount = parseFloat(document.getElementById('amount-input').value);
             if (!amount || amount <= 0) {
                 const amtInput = document.getElementById('amount-input');
                 amtInput.classList.add('text-red-500');
                 setTimeout(() => amtInput.classList.remove('text-red-500'), 800);
                 return;
             }
-            
             document.getElementById('template-name-input').value = '';
             document.getElementById('save-template-modal').classList.remove('hidden');
             setTimeout(() => document.getElementById('template-name-input').focus(), 100);
         }
 
-        function closeSaveTemplateModal() {
-            document.getElementById('save-template-modal').classList.add('hidden');
-        }
+        function closeSaveTemplateModal() { document.getElementById('save-template-modal').classList.add('hidden'); }
 
         function confirmSaveTemplate() {
-            const amountStr = document.getElementById('amount-input').value;
-            const amount = parseFloat(amountStr);
+            const amount = parseFloat(document.getElementById('amount-input').value);
             const name = document.getElementById('template-name-input').value.trim();
-            
             if (!name) {
                 const nameInput = document.getElementById('template-name-input');
                 nameInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
                 setTimeout(() => nameInput.classList.remove('border-red-500', 'ring-1', 'ring-red-500'), 800);
                 return;
             }
-
-            const tpl = {
-                id: generateId(),
-                name: name,
-                type: currentAddType,
-                amount: amount,
-                categoryId: selectedCategoryId,
-                note: document.getElementById('note-input').value
-            };
-            templates.push(tpl);
+            templates.push({
+                id: generateId(), name, type: currentAddType, amount,
+                categoryId: selectedCategoryId, note: document.getElementById('note-input').value
+            });
             saveData();
             renderTemplatesList();
             closeSaveTemplateModal();
+            showToast('Шаблон сохранен');
         }
 
         function openTemplatesManageModal() {
             document.getElementById('templates-modal').classList.remove('hidden');
             renderManageTemplatesList();
         }
+        
         function closeTemplatesManageModal() {
             document.getElementById('templates-modal').classList.add('hidden');
-            renderTemplatesList(); // refresh add screen
+            renderTemplatesList();
         }
 
         function renderManageTemplatesList() {
@@ -438,39 +679,28 @@
                 container.innerHTML = '<p class="text-center text-gray-500 mt-4">Шаблонов нет</p>';
                 return;
             }
-
             templates.forEach(t => {
                 const cat = getCategoryById(t.categoryId, t.type);
                 const el = document.createElement('div');
                 el.className = 'flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700';
                 el.innerHTML = `
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}">
-                            <i class="fas ${cat.icon}"></i>
-                        </div>
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
                         <div>
                             <div class="font-bold text-sm">${t.name}</div>
                             <div class="text-xs text-gray-500">${t.type === 'expense' ? 'Расход' : 'Доход'} • ${t.amount} ₽</div>
                         </div>
                     </div>
-                    <button onclick="promptDeleteTemplate('${t.id}')" class="p-2 text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                    <button onclick="openDeleteModal('${t.id}', 'template', 'Удалить шаблон?', 'Вы уверены?')" class="p-2 text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
                 `;
                 container.appendChild(el);
             });
         }
 
-        function promptDeleteTemplate(id) {
-            openDeleteModal(id, 'template', 'Удалить шаблон?', 'Шаблон будет удален безвозвратно.');
-        }
-
         function renderHome() {
-            const today = new Date();
-            const currentMonth = today.getMonth();
-            const currentYear = today.getFullYear();
-
-            let balance = 0;
-            let mIncome = 0;
-            let mExpense = 0;
+            const currentMonth = new Date().getMonth();
+            const currentYear = new Date().getFullYear();
+            let balance = 0, mIncome = 0, mExpense = 0;
 
             transactions.forEach(t => {
                 const tDate = new Date(t.date);
@@ -489,25 +719,17 @@
 
             const recentContainer = document.getElementById('recent-transactions');
             recentContainer.innerHTML = '';
-            
-            transactions.slice(0, 5).forEach(t => {
-                recentContainer.appendChild(createTransactionElement(t));
-            });
-
-            if (transactions.length === 0) {
-                recentContainer.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">Нет операций</p>';
-            }
+            transactions.slice(0, 5).forEach(t => recentContainer.appendChild(createTransactionElement(t)));
+            if (transactions.length === 0) recentContainer.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">Нет операций</p>';
         }
 
         function renderHistory() {
             const container = document.getElementById('history-list');
             container.innerHTML = '';
-
             if (transactions.length === 0) {
                 container.innerHTML = '<div class="text-center text-gray-400 mt-10"><i class="fas fa-box-open text-4xl mb-3"></i><p>История пуста</p></div>';
                 return;
             }
-
             const grouped = transactions.reduce((acc, t) => {
                 if (!acc[t.date]) acc[t.date] = [];
                 acc[t.date].push(t);
@@ -515,16 +737,10 @@
             }, {});
 
             Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)).forEach(date => {
-                const dateObj = new Date(date);
-                const dateTitle = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-                
+                const dateTitle = new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
                 const groupDiv = document.createElement('div');
                 groupDiv.innerHTML = `<h4 class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 ml-2 sticky top-0 bg-gray-100 dark:bg-darkBg py-1 z-10">${dateTitle}</h4>`;
-                
-                grouped[date].forEach(t => {
-                    groupDiv.appendChild(createTransactionElement(t, true));
-                });
-                
+                grouped[date].forEach(t => groupDiv.appendChild(createTransactionElement(t, true)));
                 container.appendChild(groupDiv);
             });
         }
@@ -535,30 +751,23 @@
             const el = document.createElement('div');
             el.className = 'flex justify-between items-center bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm mb-2 border border-gray-50 dark:border-gray-800';
             
-            let controlsHTML = '';
-            if (showControls) {
-                controlsHTML = `
+            let controls = showControls ? `
                 <div class="flex flex-col gap-2 ml-3 pl-3 border-l border-gray-100 dark:border-gray-700">
                     <button onclick="openAddScreen('${t.id}')" class="text-gray-400 hover:text-blue-500"><i class="fas fa-pen"></i></button>
-                    <button onclick="promptDeleteTransaction('${t.id}')" class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
-                </div>`;
-            }
+                    <button onclick="openDeleteModal('${t.id}', 'transaction', 'Удалить операцию?', 'Сумма будет вычтена из статистики.')" class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                </div>` : '';
 
             el.innerHTML = `
                 <div class="flex items-center gap-4 flex-1 min-w-0">
-                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg shrink-0" style="background-color: ${cat.color}">
-                        <i class="fas ${cat.icon}"></i>
-                    </div>
+                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg shrink-0" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
                     <div class="min-w-0 flex-1">
                         <p class="font-bold text-gray-900 dark:text-gray-100 truncate">${cat.name}</p>
                         ${t.note ? `<p class="text-xs text-gray-500 dark:text-gray-400 truncate">${t.note}</p>` : ''}
                     </div>
                 </div>
                 <div class="text-right flex items-center shrink-0">
-                    <span class="font-bold ${isExpense ? 'text-gray-900 dark:text-gray-100' : 'text-income'}">
-                        ${isExpense ? '-' : '+'}${formatMoney(t.amount)}
-                    </span>
-                    ${controlsHTML}
+                    <span class="font-bold ${isExpense ? 'text-gray-900 dark:text-gray-100' : 'text-income'}">${isExpense ? '-' : '+'}${formatMoney(t.amount)}</span>
+                    ${controls}
                 </div>
             `;
             return el;
@@ -568,23 +777,17 @@
             analyticsPeriod = period;
             ['day', 'month', 'year'].forEach(p => {
                 const btn = document.getElementById(`btn-period-${p}`);
-                if (p === period) {
-                    btn.className = 'flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white';
-                } else {
-                    btn.className = 'flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500';
-                }
+                btn.className = (p === period) 
+                    ? 'flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white'
+                    : 'flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500';
             });
             renderAnalytics();
         }
 
         function changeAnalyticsDate(delta) {
-            if (analyticsPeriod === 'day') {
-                analyticsDate.setDate(analyticsDate.getDate() + delta);
-            } else if (analyticsPeriod === 'month') {
-                analyticsDate.setMonth(analyticsDate.getMonth() + delta);
-            } else if (analyticsPeriod === 'year') {
-                analyticsDate.setFullYear(analyticsDate.getFullYear() + delta);
-            }
+            if (analyticsPeriod === 'day') analyticsDate.setDate(analyticsDate.getDate() + delta);
+            else if (analyticsPeriod === 'month') analyticsDate.setMonth(analyticsDate.getMonth() + delta);
+            else if (analyticsPeriod === 'year') analyticsDate.setFullYear(analyticsDate.getFullYear() + delta);
             renderAnalytics();
         }
 
@@ -595,190 +798,85 @@
             }
         }
 
-        function getDateLabel() {
-            const opts = {};
-            if (analyticsPeriod === 'day') {
-                opts.day = 'numeric'; opts.month = 'long'; opts.year = 'numeric';
-            } else if (analyticsPeriod === 'month') {
-                opts.month = 'long'; opts.year = 'numeric';
-            } else if (analyticsPeriod === 'year') {
-                opts.year = 'numeric';
-            }
-            return analyticsDate.toLocaleDateString('ru-RU', opts);
-        }
+        function renderAnalytics() {
+            const opts = (analyticsPeriod === 'day') ? {day:'numeric',month:'long',year:'numeric'} : (analyticsPeriod === 'month') ? {month:'long',year:'numeric'} : {year:'numeric'};
+            document.getElementById('analytics-date-display').textContent = analyticsDate.toLocaleDateString('ru-RU', opts);
+            document.getElementById('analytics-date-input').value = analyticsDate.toISOString().split('T')[0];
 
-        function filterTransactionsForAnalytics() {
-            return transactions.filter(t => {
+            const filtered = transactions.filter(t => {
                 if (t.type !== 'expense') return false;
                 const d = new Date(t.date);
                 if (analyticsPeriod === 'day') return d.toDateString() === analyticsDate.toDateString();
                 if (analyticsPeriod === 'month') return d.getMonth() === analyticsDate.getMonth() && d.getFullYear() === analyticsDate.getFullYear();
-                if (analyticsPeriod === 'year') return d.getFullYear() === analyticsDate.getFullYear();
-                return false;
+                return d.getFullYear() === analyticsDate.getFullYear();
             });
-        }
 
-        function renderAnalytics() {
-            document.getElementById('analytics-date-display').textContent = getDateLabel();
-            // sync the hidden input date (approximate for month/year)
-            document.getElementById('analytics-date-input').value = analyticsDate.toISOString().split('T')[0];
-
-            const filtered = filterTransactionsForAnalytics();
             let total = 0;
             const catTotals = {};
-
-            filtered.forEach(t => {
-                total += t.amount;
-                catTotals[t.categoryId] = (catTotals[t.categoryId] || 0) + t.amount;
-            });
+            filtered.forEach(t => { total += t.amount; catTotals[t.categoryId] = (catTotals[t.categoryId] || 0) + t.amount; });
 
             document.getElementById('chart-total').textContent = formatMoney(total);
-            const detailsContainer = document.getElementById('analytics-details');
-            detailsContainer.innerHTML = '';
-
-            const sortedCats = Object.keys(catTotals).sort((a, b) => catTotals[b] - catTotals[a]);
+            const container = document.getElementById('analytics-details');
+            container.innerHTML = '';
             
-            const chartLabels = [];
-            const chartData = [];
-            const chartColors = [];
-
+            const labels = [], data = [], colors = [];
             if (total === 0) {
-                detailsContainer.innerHTML = '<p class="text-center text-gray-400 py-4">В этом периоде расходов не было</p>';
-                chartLabels.push('Нет данных');
-                chartData.push(1);
-                chartColors.push(isDarkMode ? '#374151' : '#e5e7eb');
+                container.innerHTML = '<p class="text-center text-gray-400 py-4">Нет расходов в этом периоде</p>';
+                labels.push('Нет данных'); data.push(1); colors.push(isDarkMode ? '#374151' : '#e5e7eb');
             } else {
-                sortedCats.forEach(catId => {
+                Object.keys(catTotals).sort((a, b) => catTotals[b] - catTotals[a]).forEach(catId => {
                     const cat = getCategoryById(catId, 'expense');
                     const amount = catTotals[catId];
-                    const percent = ((amount / total) * 100).toFixed(1);
-
-                    chartLabels.push(cat.name);
-                    chartData.push(amount);
-                    chartColors.push(cat.color);
-
+                    labels.push(cat.name); data.push(amount); colors.push(cat.color);
+                    
                     const el = document.createElement('div');
                     el.className = 'flex items-center justify-between bg-white dark:bg-darkCard p-3 rounded-2xl border border-gray-50 dark:border-gray-800';
                     el.innerHTML = `
                         <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}">
-                                <i class="fas ${cat.icon}"></i>
-                            </div>
-                            <div>
-                                <p class="font-bold text-sm">${cat.name}</p>
-                                <p class="text-xs text-gray-500">${percent}%</p>
-                            </div>
+                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
+                            <div><p class="font-bold text-sm">${cat.name}</p><p class="text-xs text-gray-500">${((amount / total) * 100).toFixed(1)}%</p></div>
                         </div>
-                        <span class="font-bold">${formatMoney(amount)}</span>
-                    `;
-                    detailsContainer.appendChild(el);
+                        <span class="font-bold">${formatMoney(amount)}</span>`;
+                    container.appendChild(el);
                 });
             }
-            updateChart(chartLabels, chartData, chartColors);
-        }
-
-        function updateChart(labels, data, colors) {
+            
             const ctx = document.getElementById('expenseChart').getContext('2d');
             if (myChart) myChart.destroy();
-
             Chart.defaults.color = isDarkMode ? '#9ca3af' : '#6b7280';
-            
             myChart = new Chart(ctx, {
                 type: 'doughnut',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        data: data,
-                        backgroundColor: colors,
-                        borderWidth: 0,
-                        hoverOffset: 4
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    cutout: '75%',
-                    plugins: {
-                        legend: { display: false },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if(labels[0] === 'Нет данных') return ' Нет данных';
-                                    let label = context.label || '';
-                                    if (label) {
-                                        label += ': ';
-                                    }
-                                    if (context.parsed !== null) {
-                                        label += new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(context.parsed);
-                                    }
-                                    return label;
-                                }
-                            }
-                        }
-                    }
-                }
+                data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
             });
         }
 
-        function openLoanModal() {
-            document.getElementById('loan-name').value = '';
-            document.getElementById('loan-total').value = '';
-            document.getElementById('loan-paid').value = '';
-            document.getElementById('loan-modal').classList.remove('hidden');
-        }
-        function closeLoanModal() {
-            document.getElementById('loan-modal').classList.add('hidden');
-        }
+        function openLoanModal() { document.getElementById('loan-name').value = ''; document.getElementById('loan-total').value = ''; document.getElementById('loan-paid').value = ''; document.getElementById('loan-modal').classList.remove('hidden'); }
+        function closeLoanModal() { document.getElementById('loan-modal').classList.add('hidden'); }
         function saveLoan() {
             const name = document.getElementById('loan-name').value;
             const total = parseFloat(document.getElementById('loan-total').value);
-            const paid = parseFloat(document.getElementById('loan-paid').value) || 0;
-
-            if (!name || !total || total <= 0) return showToast('Заполните название и общую сумму корректно', true);
-
-            loans.push({
-                id: generateId(),
-                name: name,
-                totalAmount: total,
-                paidAmount: paid
-            });
-            
-            saveData();
-            renderLoans();
-            closeLoanModal();
+            if (!name || !total || total <= 0) return showToast('Заполните данные корректно', true);
+            loans.push({ id: generateId(), name, totalAmount: total, paidAmount: parseFloat(document.getElementById('loan-paid').value) || 0 });
+            saveData(); renderLoans(); closeLoanModal();
         }
 
         function renderLoans() {
             const container = document.getElementById('loans-list');
             container.innerHTML = '';
-            
-            if (loans.length === 0) {
-                container.innerHTML = '<p class="text-center text-gray-500 mt-10">Нет активных кредитов или долгов</p>';
-                return;
-            }
-
+            if (loans.length === 0) return container.innerHTML = '<p class="text-center text-gray-500 mt-10">Нет активных долгов</p>';
             loans.forEach(loan => {
                 const percent = Math.min(100, Math.round((loan.paidAmount / loan.totalAmount) * 100));
                 const remaining = loan.totalAmount - loan.paidAmount;
-
                 const el = document.createElement('div');
                 el.className = 'bg-white dark:bg-darkCard p-5 rounded-3xl shadow-sm border border-gray-50 dark:border-gray-800 relative';
                 el.innerHTML = `
-                    <button onclick="promptDeleteLoan('${loan.id}')" class="absolute top-4 right-4 text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
+                    <button onclick="openDeleteModal('${loan.id}', 'loan', 'Удалить запись?', 'История платежей останется в расходах.')" class="absolute top-4 right-4 text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
                     <h3 class="font-bold text-lg mb-1">${loan.name}</h3>
                     <p class="text-sm text-gray-500 mb-4">Осталось: <span class="font-bold text-gray-800 dark:text-gray-200">${formatMoney(remaining)}</span></p>
-                    
-                    <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-3 mb-2">
-                        <div class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: ${percent}%"></div>
-                    </div>
-                    <div class="flex justify-between text-xs text-gray-500 mb-5">
-                        <span>Выплачено: ${formatMoney(loan.paidAmount)}</span>
-                        <span>Всего: ${formatMoney(loan.totalAmount)}</span>
-                    </div>
-
-                    <button onclick="addLoanPayment('${loan.id}')" class="w-full bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400 py-2.5 rounded-xl font-bold text-sm flex justify-center items-center">
-                        <i class="fas fa-check-circle mr-2"></i> Внести платеж
-                    </button>
+                    <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-3 mb-2"><div class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: ${percent}%"></div></div>
+                    <div class="flex justify-between text-xs text-gray-500 mb-5"><span>Выплачено: ${formatMoney(loan.paidAmount)}</span><span>Всего: ${formatMoney(loan.totalAmount)}</span></div>
+                    <button onclick="addLoanPayment('${loan.id}')" class="w-full bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400 py-2.5 rounded-xl font-bold text-sm flex justify-center items-center"><i class="fas fa-check-circle mr-2"></i> Внести платеж</button>
                 `;
                 container.appendChild(el);
             });
@@ -787,27 +885,12 @@
         function addLoanPayment(id) {
             const loan = loans.find(l => l.id === id);
             if (!loan) return;
-            const amountStr = prompt(`Введите сумму платежа для "${loan.name}":`);
-            const amount = parseFloat(amountStr);
+            const amount = parseFloat(prompt(`Введите сумму платежа для "${loan.name}":`));
             if (!amount || amount <= 0) return;
-
             loan.paidAmount += amount;
-            
-            // Add as expense transaction automatically
-            transactions.push({
-                id: generateId(),
-                type: 'expense',
-                amount: amount,
-                categoryId: 'c-loan', // System category for loans
-                date: new Date().toISOString().split('T')[0],
-                note: `Платеж: ${loan.name}`,
-                timestamp: Date.now()
-            });
-
-            transactions.sort((a, b) => new Date(b.date) - new Date(a.date) || b.timestamp - a.timestamp);
-            
-            saveData();
-            updateAllViews();
+            transactions.push({ id: generateId(), type: 'expense', amount, categoryId: 'c-loan', date: new Date().toISOString().split('T')[0], note: `Платеж: ${loan.name}`, timestamp: Date.now() });
+            saveData(); updateAllViews();
+            showToast('Платеж внесен');
         }
 
         function openManageCategoriesModal() {
@@ -815,32 +898,20 @@
             document.getElementById('manage-categories-modal').classList.remove('hidden');
             renderManageCategoriesList();
         }
-        function closeManageCategoriesModal() {
-            document.getElementById('manage-categories-modal').classList.add('hidden');
-            renderCategoriesGrid(); // Refresh grid on main form
-        }
+        function closeManageCategoriesModal() { document.getElementById('manage-categories-modal').classList.add('hidden'); renderCategoriesGrid(); }
 
         function renderManageCategoriesList() {
             const container = document.getElementById('manage-categories-list');
             container.innerHTML = '';
-            const list = categories[currentAddType] || [];
-            
-            list.forEach(cat => {
+            (categories[currentAddType] || []).forEach(cat => {
                 const el = document.createElement('div');
                 el.className = 'flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-2 border border-gray-100 dark:border-gray-700';
                 el.innerHTML = `
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}">
-                            <i class="fas ${cat.icon}"></i>
-                        </div>
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
                         <span class="font-bold text-sm">${cat.name}</span>
                     </div>
-                    ${cat.isCustom ? `
-                    <div class="flex gap-1 shrink-0">
-                        <button onclick="openEditCategoryModal('${cat.id}')" class="p-2 text-gray-400 hover:text-blue-500 transition"><i class="fas fa-pen"></i></button>
-                        <button onclick="promptDeleteCategory('${cat.id}')" class="p-2 text-gray-400 hover:text-red-500 transition"><i class="fas fa-trash"></i></button>
-                    </div>
-                    ` : `<div class="text-xs text-gray-400 dark:text-gray-500 px-2">Базовая</div>`}
+                    ${cat.isCustom ? `<div class="flex gap-1 shrink-0"><button onclick="openEditCategoryModal('${cat.id}')" class="p-2 text-gray-400 hover:text-blue-500 transition"><i class="fas fa-pen"></i></button><button onclick="openDeleteModal('${cat.id}', 'category', 'Удалить категорию?', 'Ранее добавленные операции сохранятся.')" class="p-2 text-gray-400 hover:text-red-500 transition"><i class="fas fa-trash"></i></button></div>` : `<div class="text-xs text-gray-400 px-2">Базовая</div>`}
                 `;
                 container.appendChild(el);
             });
@@ -849,24 +920,18 @@
         function openEditCategoryModal(id = null) {
             editingCategoryId = id;
             document.getElementById('edit-cat-modal-title').textContent = id ? 'Редактировать' : 'Новая категория';
-            
             if (id) {
                 const cat = categories[currentAddType].find(c => c.id === id);
-                if (cat) {
-                    document.getElementById('edit-cat-name').value = cat.name;
-                    editorSelectedColor = cat.color;
-                    editorSelectedIcon = cat.icon;
-                }
+                if (cat) { document.getElementById('edit-cat-name').value = cat.name; editorSelectedColor = cat.color; editorSelectedIcon = cat.icon; }
             } else {
                 document.getElementById('edit-cat-name').value = '';
                 editorSelectedColor = currentAddType === 'expense' ? '#ef4444' : '#10b981';
                 editorSelectedIcon = 'fa-star';
             }
-            
-            renderColorPicker();
-            renderIconPicker();
+            renderColorPicker(); renderIconPicker();
             document.getElementById('edit-category-modal').classList.remove('hidden');
         }
+        function closeEditCategoryModal() { document.getElementById('edit-category-modal').classList.add('hidden'); }
 
         function renderColorPicker() {
             const container = document.getElementById('edit-cat-colors');
@@ -876,13 +941,8 @@
                 const isSelected = color === editorSelectedColor;
                 div.className = `w-8 h-8 rounded-full cursor-pointer flex items-center justify-center transition-transform ${isSelected ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-gray-900 scale-110' : 'hover:scale-110'}`;
                 div.style.backgroundColor = color;
-                if (isSelected) {
-                    div.innerHTML = '<i class="fas fa-check text-white text-xs drop-shadow-md"></i>';
-                }
-                div.onclick = () => {
-                    editorSelectedColor = color;
-                    renderColorPicker();
-                };
+                if (isSelected) div.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
+                div.onclick = () => { editorSelectedColor = color; renderColorPicker(); };
                 container.appendChild(div);
             });
         }
@@ -895,91 +955,40 @@
                 const div = document.createElement('div');
                 div.className = `w-10 h-10 rounded-2xl cursor-pointer flex items-center justify-center text-xl transition-all ${isSelected ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 ring-2 ring-blue-500 scale-110' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`;
                 div.innerHTML = `<i class="fas ${icon}"></i>`;
-                div.onclick = () => {
-                    editorSelectedIcon = icon;
-                    renderIconPicker();
-                };
+                div.onclick = () => { editorSelectedIcon = icon; renderIconPicker(); };
                 container.appendChild(div);
             });
         }
 
-        function closeEditCategoryModal() {
-            document.getElementById('edit-category-modal').classList.add('hidden');
-        }
-
         function saveCategory() {
             const name = document.getElementById('edit-cat-name').value.trim();
-
             if (!name) return showToast('Введите название', true);
-
-            const newCat = {
-                id: editingCategoryId || generateId(),
-                name: name,
-                color: editorSelectedColor,
-                icon: editorSelectedIcon,
-                isCustom: true
-            };
-
+            const newCat = { id: editingCategoryId || generateId(), name, color: editorSelectedColor, icon: editorSelectedIcon, isCustom: true };
             if (!categories[currentAddType]) categories[currentAddType] = [];
-
             if (editingCategoryId) {
                 const index = categories[currentAddType].findIndex(c => c.id === editingCategoryId);
                 if (index !== -1) categories[currentAddType][index] = newCat;
-            } else {
-                categories[currentAddType].push(newCat);
-            }
-
-            saveData();
-            closeEditCategoryModal();
-            renderManageCategoriesList(); 
+            } else categories[currentAddType].push(newCat);
+            saveData(); closeEditCategoryModal(); renderManageCategoriesList(); 
         }
 
         function openDeleteModal(id, type, title, text) {
-            itemToDeleteId = id;
-            itemToDeleteType = type;
+            itemToDeleteId = id; itemToDeleteType = type;
             document.getElementById('delete-modal-title').textContent = title;
             document.getElementById('delete-modal-text').textContent = text;
             document.getElementById('delete-modal').classList.remove('hidden');
         }
-
-        function closeDeleteModal() {
-            document.getElementById('delete-modal').classList.add('hidden');
-            itemToDeleteId = null;
-            itemToDeleteType = null;
-        }
-
-        function promptDeleteTransaction(id) {
-            openDeleteModal(id, 'transaction', 'Удалить операцию?', 'Сумма будет вычтена из вашей статистики.');
-        }
-
-        function promptDeleteLoan(id) {
-            openDeleteModal(id, 'loan', 'Удалить запись?', 'Вся история платежей по этому долгу останется в расходах, но карточка долга исчезнет.');
-        }
-
-        function promptDeleteCategory(id) {
-            openDeleteModal(id, 'category', 'Удалить категорию?', 'Ранее добавленные операции сохранятся, но категория пропадет из списка выбора.');
-        }
+        function closeDeleteModal() { document.getElementById('delete-modal').classList.add('hidden'); itemToDeleteId = null; itemToDeleteType = null; }
 
         document.getElementById('confirm-delete-btn').addEventListener('click', () => {
             if (itemToDeleteId && itemToDeleteType) {
-                if (itemToDeleteType === 'transaction') {
-                    transactions = transactions.filter(t => t.id !== itemToDeleteId);
-                    updateAllViews();
-                } else if (itemToDeleteType === 'loan') {
-                    loans = loans.filter(l => l.id !== itemToDeleteId);
-                    renderLoans();
-                } else if (itemToDeleteType === 'category') {
-                    categories[currentAddType] = categories[currentAddType].filter(c => c.id !== itemToDeleteId);
-                    renderManageCategoriesList();
-                } else if (itemToDeleteType === 'template') {
-                    templates = templates.filter(t => t.id !== itemToDeleteId);
-                    renderManageTemplatesList();
-                }
-                saveData(); 
-                closeDeleteModal();
+                if (itemToDeleteType === 'transaction') { transactions = transactions.filter(t => t.id !== itemToDeleteId); updateAllViews(); }
+                else if (itemToDeleteType === 'loan') { loans = loans.filter(l => l.id !== itemToDeleteId); renderLoans(); }
+                else if (itemToDeleteType === 'category') { categories[currentAddType] = categories[currentAddType].filter(c => c.id !== itemToDeleteId); renderManageCategoriesList(); }
+                else if (itemToDeleteType === 'template') { templates = templates.filter(t => t.id !== itemToDeleteId); renderManageTemplatesList(); }
+                saveData(); closeDeleteModal(); showToast('Успешно удалено');
             }
         });
-
     </script>
 </body>
 </html>
