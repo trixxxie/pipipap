@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Мои Финансы</title>
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script>
         tailwind.config = {
             darkMode: 'class',
@@ -16,1130 +15,1213 @@
                 extend: {
                     colors: {
                         darkBg: '#121212',
-                        darkCard: '#1e1e1e',
-                        income: '#10b981',
-                        expense: '#ef4444'
+                        darkCard: '#1E1E1E'
                     }
                 }
             }
         }
     </script>
     <style>
-        body { -webkit-tap-highlight-color: transparent; }
-        /* Hide scrollbar for clean UI */
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+        .tab-content { display: none; animation: fadeIn 0.3s ease-in-out; }
+        .tab-content.active { display: block; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        .glass-effect { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
+        .dark .glass-effect { background: rgba(30, 30, 30, 0.9); }
+        
+        #lock-screen {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: #121212;
+            z-index: 9999;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            text-align: center;
+            padding: 20px;
+        }
     </style>
 </head>
-<body class="bg-gray-100 dark:bg-darkBg text-gray-900 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
+<body class="bg-gray-50 text-gray-800 dark:bg-darkBg dark:text-gray-100 transition-colors duration-300">
 
-    <!-- Header -->
-    <header class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm z-10 shrink-0">
-        <h1 id="header-title" class="text-xl font-bold">Мои Финансы</h1>
-        <div class="flex gap-4 items-center">
-            <button onclick="toggleTheme()" class="text-gray-500 dark:text-gray-400 text-xl"><i class="fas fa-moon dark:fa-sun"></i></button>
-            <button onclick="openSettingsModal()" class="text-gray-500 dark:text-gray-400 text-xl"><i class="fas fa-cog"></i></button>
-        </div>
-    </header>
-
-    <!-- Main Content Area -->
-    <main class="flex-1 overflow-y-auto no-scrollbar relative pb-20">
-        <!-- Home Screen -->
-        <div id="home-screen" class="screen-view p-4">
-            <!-- Balance Card -->
-            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl p-6 text-white shadow-lg mb-6">
-                <p class="text-sm opacity-80 mb-1">Общий баланс</p>
-                <h2 id="total-balance" class="text-3xl font-bold mb-4">0 ₽</h2>
-                <div class="flex justify-between border-t border-white/20 pt-4">
-                    <div>
-                        <p class="text-xs opacity-80"><i class="fas fa-arrow-down mr-1"></i>Доход за месяц</p>
-                        <p id="month-income" class="font-bold">0 ₽</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-xs opacity-80"><i class="fas fa-arrow-up mr-1"></i>Расход за месяц</p>
-                        <p id="month-expense" class="font-bold">0 ₽</p>
-                    </div>
-                </div>
-            </div>
-            <div class="flex justify-between items-end mb-4">
-                <h3 class="font-bold text-lg">Последние операции</h3>
-                <button onclick="switchTab('history')" class="text-blue-500 text-sm">Все</button>
-            </div>
-            <div id="recent-transactions"></div>
-        </div>
-
-        <!-- History Screen -->
-        <div id="history-screen" class="screen-view p-4 hidden">
-            <div id="history-list"></div>
-        </div>
-
-        <!-- Analytics Screen -->
-        <div id="analytics-screen" class="screen-view p-4 hidden flex flex-col h-full">
-            <div class="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl mb-4 shrink-0">
-                <button id="btn-period-day" onclick="setAnalyticsPeriod('day')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">День</button>
-                <button id="btn-period-month" onclick="setAnalyticsPeriod('month')" class="flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white">Месяц</button>
-                <button id="btn-period-year" onclick="setAnalyticsPeriod('year')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">Год</button>
-            </div>
-            <div class="flex justify-between items-center mb-6 shrink-0 relative">
-                <button onclick="changeAnalyticsDate(-1)" class="p-2 text-gray-500"><i class="fas fa-chevron-left"></i></button>
-                <label class="font-bold text-lg cursor-pointer relative flex items-center justify-center">
-                    <span id="analytics-date-display">...</span>
-                    <input type="date" id="analytics-date-input" onchange="onAnalyticsDateSelect(this.value)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                </label>
-                <button onclick="changeAnalyticsDate(1)" class="p-2 text-gray-500"><i class="fas fa-chevron-right"></i></button>
-            </div>
-            <div class="relative h-48 mb-6 shrink-0 flex items-center justify-center">
-                <canvas id="expenseChart"></canvas>
-                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                    <span class="text-xs text-gray-500">Всего</span>
-                    <span id="chart-total" class="font-bold text-xl">0 ₽</span>
-                </div>
-            </div>
-            <div id="analytics-details" class="flex-1 overflow-y-auto space-y-2 pb-6"></div>
-        </div>
-
-        <!-- Loans Screen -->
-        <div id="loans-screen" class="screen-view p-4 hidden">
-            <button onclick="openLoanModal()" class="w-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 py-3 rounded-xl font-bold mb-4 flex justify-center items-center gap-2">
-                <i class="fas fa-plus-circle"></i> Добавить кредит / долг
-            </button>
-            <div id="loans-list" class="space-y-4"></div>
-        </div>
-    </main>
-
-    <!-- Bottom Navigation -->
-    <nav class="bg-white dark:bg-darkCard shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex justify-around p-2 pb-safe absolute bottom-0 w-full z-20 shrink-0 border-t border-gray-100 dark:border-gray-800">
-        <button onclick="switchTab('home')" data-target="home" class="nav-btn text-blue-500 flex flex-col items-center p-2 w-16">
-            <i class="fas fa-wallet text-xl mb-1"></i>
-            <span class="text-[10px]">Главная</span>
-        </button>
-        <button onclick="switchTab('history')" data-target="history" class="nav-btn text-gray-400 dark:text-gray-500 flex flex-col items-center p-2 w-16">
-            <i class="fas fa-list text-xl mb-1"></i>
-            <span class="text-[10px]">История</span>
-        </button>
-        
-        <div class="relative -top-6">
-            <button onclick="openAddScreen()" class="bg-blue-500 text-white w-14 h-14 rounded-full shadow-lg flex justify-center items-center text-2xl transform transition active:scale-95">
-                <i class="fas fa-plus"></i>
-            </button>
-        </div>
-
-        <button onclick="switchTab('analytics')" data-target="analytics" class="nav-btn text-gray-400 dark:text-gray-500 flex flex-col items-center p-2 w-16">
-            <i class="fas fa-chart-pie text-xl mb-1"></i>
-            <span class="text-[10px]">Аналитика</span>
-        </button>
-        <button onclick="switchTab('loans')" data-target="loans" class="nav-btn text-gray-400 dark:text-gray-500 flex flex-col items-center p-2 w-16">
-            <i class="fas fa-landmark text-xl mb-1"></i>
-            <span class="text-[10px]">Кредиты</span>
-        </button>
-    </nav>
-
-    <!-- Add/Edit Transaction Screen (Full Screen Overlay) -->
-    <div id="add-screen" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-30 hidden flex-col">
-        <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm">
-            <button onclick="closeAddScreen()" class="text-gray-500"><i class="fas fa-times text-xl"></i></button>
-            <h2 id="add-screen-title" class="text-lg font-bold">Новая операция</h2>
-            <button id="save-template-btn" onclick="saveAsTemplate()" class="text-yellow-500"><i class="fas fa-star text-xl"></i></button>
-        </div>
-        
-        <div class="flex-1 overflow-y-auto p-4 space-y-6">
-            <!-- Amount -->
-            <div class="bg-white dark:bg-darkCard rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800 flex items-center justify-center">
-                <input type="number" id="amount-input" placeholder="0" class="w-full text-center text-4xl font-bold bg-transparent outline-none dark:text-white placeholder-gray-300 dark:placeholder-gray-600 transition-colors">
-            </div>
-
-            <!-- Type -->
-            <div class="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl">
-                <button id="type-expense" onclick="setAddType('expense')" class="flex-1 py-2 text-sm font-bold rounded-lg shadow bg-white dark:bg-gray-700 text-expense">Расход</button>
-                <button id="type-income" onclick="setAddType('income')" class="flex-1 py-2 text-sm font-bold rounded-lg text-gray-500">Доход</button>
-            </div>
-
-            <!-- Templates strip -->
-            <div>
-                <div class="flex justify-between items-center mb-2">
-                    <span class="text-sm font-bold text-gray-500">Шаблоны</span>
-                    <button onclick="openTemplatesManageModal()" class="text-xs text-blue-500">Настроить</button>
-                </div>
-                <div id="templates-list" class="flex gap-3 overflow-x-auto no-scrollbar pb-2"></div>
-            </div>
-
-            <!-- Categories -->
-            <div>
-                <div class="flex justify-between items-center mb-4">
-                    <span class="text-sm font-bold text-gray-500">Категория</span>
-                    <button onclick="openManageCategoriesModal()" class="text-xs text-blue-500">Настроить</button>
-                </div>
-                <div id="categories-grid" class="grid grid-cols-4 gap-y-4 gap-x-2"></div>
-            </div>
-
-            <!-- Date & Note -->
-            <div class="space-y-4">
-                <div class="flex items-center bg-white dark:bg-darkCard rounded-xl p-3 shadow-sm border border-gray-50 dark:border-gray-800">
-                    <i class="fas fa-calendar text-gray-400 w-8 text-center"></i>
-                    <input type="date" id="date-input" class="w-full bg-transparent outline-none text-gray-700 dark:text-gray-200">
-                </div>
-                <div class="flex items-center bg-white dark:bg-darkCard rounded-xl p-3 shadow-sm border border-gray-50 dark:border-gray-800">
-                    <i class="fas fa-comment text-gray-400 w-8 text-center"></i>
-                    <input type="text" id="note-input" placeholder="Заметка" class="w-full bg-transparent outline-none text-gray-700 dark:text-gray-200">
-                </div>
-            </div>
-        </div>
-
-        <div class="p-4 bg-white dark:bg-darkCard shrink-0">
-            <button onclick="saveTransaction()" class="w-full bg-blue-500 text-white font-bold text-lg py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">
-                Сохранить
-            </button>
-        </div>
+    <div id="lock-screen">
+        <i class="fas fa-lock text-6xl text-red-500 mb-6"></i>
+        <h1 class="text-2xl font-bold mb-2">Доступ закрыт</h1>
+        <p class="text-gray-400 mb-6">У вас нет прав для просмотра этого приложения.</p>
+        <p class="text-sm text-gray-500 bg-gray-800 px-4 py-2 rounded-lg">Ваш ID: <span id="lock-user-id" class="font-mono text-white"></span></p>
     </div>
 
-    <!-- Settings Modal -->
-    <div id="settings-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
-            <h3 class="text-lg font-bold mb-4">Настройки</h3>
-            <div class="space-y-3">
-                <button onclick="exportData()" class="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition border border-gray-100 dark:border-gray-700">
-                    <i class="fas fa-download text-blue-500"></i>
-                    <span class="font-medium text-left">Экспорт данных<br><span class="text-xs text-gray-400">Сохранить резервную копию</span></span>
+    <!-- MAIN APP CONTENT (Hidden by default until auth check) -->
+    <div id="app-content" class="hidden">
+        
+        <!-- HEADER -->
+        <header class="flex justify-between items-center p-6 bg-white dark:bg-darkCard shadow-sm rounded-b-3xl relative z-10 transition-colors duration-200">
+            <div>
+                <p class="text-sm text-gray-500 dark:text-gray-400">Мой баланс</p>
+                <h1 id="total-balance" class="text-3xl font-bold tracking-tight">0 ₽</h1>
+            </div>
+            <div class="flex gap-3">
+                <button onclick="openSettingsModal()" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300">
+                    <i class="fas fa-cog"></i>
                 </button>
-                <label class="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition cursor-pointer border border-gray-100 dark:border-gray-700">
-                    <i class="fas fa-upload text-green-500"></i>
-                    <span class="font-medium text-left">Импорт данных<br><span class="text-xs text-gray-400">Загрузить из файла</span></span>
-                    <input type="file" onchange="handleImportData(event)" accept=".json" class="hidden">
-                </label>
+                <button id="theme-toggle" class="w-10 h-10 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300">
+                    <i class="fas fa-moon"></i>
+                </button>
             </div>
-            <button onclick="closeSettingsModal()" class="w-full mt-6 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Закрыть</button>
-        </div>
-    </div>
+        </header>
 
-    <!-- Loan Modal -->
-    <div id="loan-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
-            <h3 class="text-lg font-bold mb-4">Новый долг / кредит</h3>
-            <div class="space-y-4 mb-6">
-                <input type="text" id="loan-name" placeholder="Название (например, Ипотека)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
-                <input type="number" id="loan-total" placeholder="Общая сумма" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
-                <input type="number" id="loan-paid" placeholder="Уже выплачено (по умолчанию 0)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500">
+        <!-- MAIN SCREEN -->
+        <div id="main-screen" class="tab-content active p-4 space-y-6">
+            <div class="grid grid-cols-2 gap-4">
+                <div class="bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-8 h-8 rounded-full bg-green-100 text-green-600 flex items-center justify-center"><i class="fas fa-arrow-down text-sm"></i></div>
+                        <span class="text-sm text-gray-500">Доходы</span>
+                    </div>
+                    <p id="total-income" class="text-lg font-bold">0 ₽</p>
+                </div>
+                <div class="bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm">
+                    <div class="flex items-center gap-2 mb-2">
+                        <div class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center"><i class="fas fa-arrow-up text-sm"></i></div>
+                        <span class="text-sm text-gray-500">Расходы</span>
+                    </div>
+                    <p id="total-expense" class="text-lg font-bold">0 ₽</p>
+                </div>
             </div>
-            <div class="flex gap-3">
-                <button onclick="closeLoanModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
-                <button onclick="saveLoan()" class="flex-1 py-3 bg-blue-500 rounded-xl font-bold text-white">Сохранить</button>
-            </div>
-        </div>
-    </div>
 
-    <!-- Manage Categories Modal -->
-    <div id="manage-categories-modal" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-40 hidden flex-col">
-        <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm shrink-0">
-            <button onclick="closeManageCategoriesModal()" class="text-gray-500"><i class="fas fa-arrow-left text-xl"></i></button>
-            <h2 class="text-lg font-bold">Категории: <span id="manage-cat-type-label"></span></h2>
-            <button onclick="openEditCategoryModal()" class="text-blue-500"><i class="fas fa-plus text-xl"></i></button>
-        </div>
-        <div id="manage-categories-list" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
-    </div>
-
-    <!-- Edit/Add Category Modal -->
-    <div id="edit-category-modal" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-50 hidden flex-col">
-        <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm shrink-0">
-            <button onclick="closeEditCategoryModal()" class="text-gray-500"><i class="fas fa-arrow-left text-xl"></i></button>
-            <h2 id="edit-cat-modal-title" class="text-lg font-bold">Новая категория</h2>
-            <button onclick="saveCategory()" class="text-blue-500 font-bold">Готово</button>
-        </div>
-        <div class="flex-1 overflow-y-auto p-4 space-y-6">
-            <div class="bg-white dark:bg-darkCard rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800">
-                <input type="text" id="edit-cat-name" placeholder="Название категории" class="w-full text-center text-xl font-bold bg-transparent outline-none">
+            <!-- Templates -->
+            <div class="mb-4">
+                <h3 class="text-lg font-bold mb-3">Быстрые шаблоны</h3>
+                <div id="templates-container" class="flex gap-3 overflow-x-auto no-scrollbar pb-2">
+                    <!-- Templates render here -->
+                </div>
             </div>
+
             <div>
-                <p class="text-sm font-bold text-gray-500 mb-3 ml-1">Цвет</p>
-                <div id="edit-cat-colors" class="grid grid-cols-8 gap-3 bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm border border-gray-50 dark:border-gray-800"></div>
-            </div>
-            <div>
-                <p class="text-sm font-bold text-gray-500 mb-3 ml-1">Иконка</p>
-                <div id="edit-cat-icons" class="grid grid-cols-5 gap-3 bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm max-h-64 overflow-y-auto border border-gray-50 dark:border-gray-800"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Manage Templates Modal -->
-    <div id="templates-modal" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-40 hidden flex-col">
-         <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm shrink-0">
-            <button onclick="closeTemplatesManageModal()" class="text-gray-500"><i class="fas fa-arrow-left text-xl"></i></button>
-            <h2 class="text-lg font-bold">Шаблоны</h2>
-            <div class="w-6"></div>
-        </div>
-        <div id="manage-templates-list" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
-    </div>
-
-    <!-- Save Template Modal -->
-    <div id="save-template-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
-            <h3 class="text-lg font-bold mb-2">Сохранить как шаблон</h3>
-            <p class="text-sm text-gray-500 mb-4">Текущая сумма и категория будут сохранены для быстрого доступа.</p>
-            <input type="text" id="template-name-input" placeholder="Название (напр. Кофе)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none focus:ring-2 focus:ring-blue-500 mb-6 transition-colors">
-            <div class="flex gap-3">
-                <button onclick="closeSaveTemplateModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
-                <button onclick="confirmSaveTemplate()" class="flex-1 py-3 bg-blue-500 rounded-xl font-bold text-white">Сохранить</button>
+                <div class="flex justify-between items-end mb-4">
+                    <h3 class="text-lg font-bold">Последние операции</h3>
+                    <button onclick="switchTab('history')" class="text-sm text-blue-500 font-medium">Все</button>
+                </div>
+                <div id="recent-transactions" class="space-y-3">
+                    <!-- Transactions go here -->
+                </div>
             </div>
         </div>
-    </div>
 
-    <!-- Custom Confirm Delete Modal -->
-    <div id="delete-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4">
-        <div class="bg-white dark:bg-darkCard w-full max-w-xs rounded-3xl p-6 shadow-xl text-center">
-            <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 flex items-center justify-center text-3xl mx-auto mb-4">
-                <i class="fas fa-exclamation-triangle"></i>
-            </div>
-            <h3 id="delete-modal-title" class="text-lg font-bold mb-2">Удалить?</h3>
-            <p id="delete-modal-text" class="text-sm text-gray-500 mb-6">Это действие нельзя отменить.</p>
-            <div class="flex gap-3">
-                <button onclick="closeDeleteModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
-                <button id="confirm-delete-btn" class="flex-1 py-3 bg-red-500 rounded-xl font-bold text-white">Удалить</button>
+        <!-- HISTORY SCREEN (NEW) -->
+        <div id="history-screen" class="tab-content p-4 space-y-6">
+            <h2 class="text-2xl font-bold mb-4">История операций</h2>
+            <div id="history-transactions-list" class="space-y-4 pb-20">
+                <!-- Grouped transactions -->
             </div>
         </div>
-    </div>
 
-    <!-- Toast Notification -->
-    <div id="toast-notification" class="fixed top-4 left-1/2 -translate-x-1/2 bg-white dark:bg-darkCard shadow-lg rounded-full px-4 py-3 flex items-center z-[70] transition-all duration-300 transform -translate-y-24 opacity-0 pointer-events-none">
-        <i class="fas fa-check-circle text-green-400 dark:text-green-500 mr-2 text-lg"></i>
-        <span id="toast-message" class="text-sm font-medium text-gray-800 dark:text-gray-200">Успешно</span>
-    </div>
+        <!-- ANALYTICS SCREEN -->
+        <div id="analytics-screen" class="tab-content p-4 space-y-6">
+            <h2 class="text-2xl font-bold mb-4">Аналитика расходов</h2>
+            <div class="bg-white dark:bg-darkCard p-6 rounded-3xl shadow-sm">
+                <div class="relative w-48 h-48 mx-auto mb-6">
+                    <canvas id="expenseChart"></canvas>
+                    <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span class="text-xs text-gray-500">Всего</span>
+                        <span id="chart-total" class="font-bold text-lg w-32 text-center truncate">0 ₽</span>
+                    </div>
+                </div>
+                <div id="chart-legend" class="space-y-2 max-h-64 overflow-y-auto no-scrollbar pb-20">
+                    <!-- Legend goes here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- LOANS SCREEN -->
+        <div id="loans-screen" class="tab-content p-4 space-y-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Кредиты и долги</h2>
+                <button onclick="openLoanModal()" class="text-blue-500"><i class="fas fa-plus"></i></button>
+            </div>
+            <div id="loans-list" class="space-y-4 pb-20">
+                <!-- Loans render here -->
+            </div>
+        </div>
+
+        <!-- Bottom Navigation -->
+        <nav class="fixed bottom-0 w-full bg-white dark:bg-darkCard border-t border-gray-100 dark:border-gray-800 pb-safe pt-2 px-6 flex justify-between items-center z-20 h-16 transition-colors duration-200">
+            <button onclick="switchTab('main')" id="nav-main" class="flex flex-col items-center text-blue-500 transition-colors w-14">
+                <i class="fas fa-home text-xl mb-1"></i>
+                <span class="text-[10px] font-medium">Главная</span>
+            </button>
+            <button onclick="switchTab('history')" id="nav-history" class="flex flex-col items-center text-gray-400 dark:text-gray-500 hover:text-blue-500 transition-colors w-14">
+                <i class="fas fa-list text-xl mb-1"></i>
+                <span class="text-[10px] font-medium">История</span>
+            </button>
+            
+            <!-- FAB Add Button -->
+            <div class="relative -top-6">
+                <button onclick="openAddModal()" class="w-14 h-14 bg-gradient-to-r from-blue-500 to-teal-400 rounded-full text-white shadow-lg flex items-center justify-center hover:scale-105 transition-transform">
+                    <i class="fas fa-plus text-2xl"></i>
+                </button>
+            </div>
+
+            <button onclick="switchTab('analytics')" id="nav-analytics" class="flex flex-col items-center text-gray-400 dark:text-gray-500 hover:text-blue-500 transition-colors w-14">
+                <i class="fas fa-chart-pie text-xl mb-1"></i>
+                <span class="text-[10px] font-medium">Аналитика</span>
+            </button>
+            <button onclick="switchTab('loans')" id="nav-loans" class="flex flex-col items-center text-gray-400 dark:text-gray-500 hover:text-blue-500 transition-colors w-14">
+                <i class="fas fa-landmark text-xl mb-1"></i>
+                <span class="text-[10px] font-medium">Кредиты</span>
+            </button>
+        </nav>
+
+        <!-- MODALS -->
+        <!-- Add Transaction Modal -->
+        <div id="add-modal" class="fixed inset-0 bg-black/50 hidden z-50 flex flex-col justify-end">
+            <div class="glass-effect rounded-t-3xl p-6 h-[85vh] flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">Новая операция</h2>
+                    <button onclick="closeModals()" class="text-gray-500 p-2"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                
+                <div class="flex bg-gray-100 dark:bg-gray-800 rounded-xl p-1 mb-6">
+                    <button id="btn-expense" onclick="setTransactionType('expense')" class="flex-1 py-2 rounded-lg bg-white dark:bg-gray-600 shadow-sm font-medium transition-all">Расход</button>
+                    <button id="btn-income" onclick="setTransactionType('income')" class="flex-1 py-2 rounded-lg text-gray-500 dark:text-gray-400 font-medium transition-all">Доход</button>
+                </div>
+
+                <div class="text-center mb-6">
+                    <input type="number" id="amount-input" placeholder="0" class="text-5xl font-bold text-center w-full bg-transparent outline-none mb-2" inputmode="decimal">
+                    <p class="text-gray-500">₽ RUB</p>
+                </div>
+
+                <div class="flex-1 overflow-y-auto no-scrollbar mb-4 space-y-4">
+                    <div>
+                        <div class="flex justify-between items-center mb-2">
+                            <label class="text-sm font-bold text-gray-500">Категория</label>
+                            <button onclick="openCategoryModal()" class="text-xs text-blue-500"><i class="fas fa-cog"></i> Настроить</button>
+                        </div>
+                        <div id="categories-grid" class="grid grid-cols-4 gap-3 max-h-40 overflow-y-auto no-scrollbar pb-2">
+                            <!-- Categories generated here -->
+                        </div>
+                    </div>
+                    <div>
+                        <label class="text-sm font-bold text-gray-500 mb-2 block">Заметка (опционально)</label>
+                        <input type="text" id="note-input" placeholder="Например: Продукты в Пятерочке" class="w-full bg-gray-100 dark:bg-gray-800 rounded-xl p-3 outline-none">
+                    </div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <input type="checkbox" id="save-template" class="w-5 h-5 rounded text-blue-500">
+                        <label for="save-template" class="text-sm text-gray-600 dark:text-gray-300">Сохранить как шаблон</label>
+                    </div>
+                </div>
+
+                <button onclick="saveTransaction()" class="w-full bg-blue-500 text-white font-bold py-4 rounded-2xl mb-safe active:scale-95 transition-transform">Добавить</button>
+            </div>
+        </div>
+
+        <!-- Custom Prompt Modal (Template & Payment) -->
+        <div id="custom-prompt-modal" class="fixed inset-0 bg-black/60 hidden z-[60] flex items-center justify-center p-4">
+            <div class="bg-white dark:bg-darkCard rounded-2xl p-6 w-full max-w-sm shadow-2xl transform scale-95 transition-transform duration-200" id="prompt-content">
+                <h3 id="prompt-title" class="text-lg font-bold mb-2">Введите данные</h3>
+                <p id="prompt-message" class="text-sm text-gray-500 mb-4"></p>
+                <input type="text" id="prompt-input" class="w-full bg-gray-100 dark:bg-gray-800 rounded-xl p-3 outline-none mb-6 border-2 border-transparent transition-colors">
+                <div class="flex gap-3">
+                    <button onclick="closeCustomPrompt()" class="flex-1 py-3 rounded-xl bg-gray-100 dark:bg-gray-800 font-medium text-gray-600 dark:text-gray-300">Отмена</button>
+                    <button onclick="submitCustomPrompt()" class="flex-1 py-3 rounded-xl bg-blue-500 text-white font-medium">Сохранить</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Manage Categories Modal -->
+        <div id="category-modal" class="fixed inset-0 bg-black/50 hidden z-[60] flex flex-col justify-end">
+            <div class="bg-white dark:bg-darkCard rounded-t-3xl p-6 h-[70vh] flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">Категории</h2>
+                    <button onclick="closeCategoryModal()" class="text-gray-500 p-2"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                
+                <div class="mb-4">
+                    <input type="text" id="new-cat-name" placeholder="Название категории" class="w-full bg-gray-100 dark:bg-gray-800 rounded-xl p-3 outline-none mb-3">
+                    
+                    <label class="text-xs font-bold text-gray-500 mb-2 block">Цвет</label>
+                    <div id="color-picker" class="flex gap-3 overflow-x-auto no-scrollbar pb-2 mb-3">
+                        <!-- Colors -->
+                    </div>
+
+                    <label class="text-xs font-bold text-gray-500 mb-2 block">Иконка</label>
+                    <div id="icon-picker" class="flex gap-3 overflow-x-auto no-scrollbar pb-2 mb-4">
+                        <!-- Icons -->
+                    </div>
+
+                    <button onclick="addCategory()" class="w-full bg-gray-200 dark:bg-gray-700 font-bold py-3 rounded-xl">Создать категорию</button>
+                </div>
+
+                <div class="flex-1 overflow-y-auto no-scrollbar space-y-2" id="manage-categories-list">
+                    <!-- Category list -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Loan Modal -->
+        <div id="loan-modal" class="fixed inset-0 bg-black/50 hidden z-50 flex flex-col justify-end">
+            <div class="glass-effect rounded-t-3xl p-6 pb-12 flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold" id="loan-modal-title">Новый кредит/долг</h2>
+                    <button onclick="closeLoanModal()" class="text-gray-500 p-2"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                
+                <input type="hidden" id="loan-id-input">
+                
+                <div class="space-y-4 mb-6">
+                    <div>
+                        <label class="text-sm font-bold text-gray-500 mb-1 block">Название</label>
+                        <input type="text" id="loan-name" placeholder="Например: Ипотека" class="w-full bg-gray-100 dark:bg-gray-800 rounded-xl p-3 outline-none">
+                    </div>
+                    <div>
+                        <label class="text-sm font-bold text-gray-500 mb-1 block">Общая сумма</label>
+                        <input type="number" id="loan-total" placeholder="0" class="w-full bg-gray-100 dark:bg-gray-800 rounded-xl p-3 outline-none" inputmode="decimal">
+                    </div>
+                    <div>
+                        <label class="text-sm font-bold text-gray-500 mb-1 block">Уже выплачено</label>
+                        <input type="number" id="loan-paid" placeholder="0" class="w-full bg-gray-100 dark:bg-gray-800 rounded-xl p-3 outline-none" inputmode="decimal">
+                    </div>
+                </div>
+
+                <button onclick="saveLoan()" class="w-full bg-blue-500 text-white font-bold py-4 rounded-2xl mb-safe">Сохранить</button>
+            </div>
+        </div>
+
+        <!-- Settings Modal -->
+        <div id="settings-modal" class="fixed inset-0 bg-black/50 hidden z-50 flex flex-col justify-end">
+            <div class="glass-effect rounded-t-3xl p-6 pb-12 flex flex-col">
+                <div class="flex justify-between items-center mb-6">
+                    <h2 class="text-xl font-bold">Настройки</h2>
+                    <button onclick="closeSettingsModal()" class="text-gray-500 p-2"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                
+                <div class="space-y-3 mb-6">
+                    <button onclick="exportData()" class="w-full flex items-center justify-between bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-blue-100 text-blue-500 flex items-center justify-center"><i class="fas fa-download"></i></div>
+                            <div class="text-left"><p class="font-bold">Экспорт данных</p><p class="text-xs text-gray-500">Скачать резервную копию</p></div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </button>
+                    
+                    <button onclick="document.getElementById('import-file').click()" class="w-full flex items-center justify-between bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-full bg-green-100 text-green-500 flex items-center justify-center"><i class="fas fa-upload"></i></div>
+                            <div class="text-left"><p class="font-bold">Импорт данных</p><p class="text-xs text-gray-500">Восстановить из файла</p></div>
+                        </div>
+                        <i class="fas fa-chevron-right text-gray-400"></i>
+                    </button>
+                    <input type="file" id="import-file" class="hidden" accept=".json" onchange="importData(event)">
+                </div>
+                <div class="text-center text-xs text-gray-500">
+                    Данные хранятся локально на вашем устройстве или в Telegram CloudStorage.
+                </div>
+            </div>
+        </div>
+
+        <!-- Custom Toast Notification -->
+        <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full shadow-lg z-[999] transition-all duration-300 opacity-0 translate-y-[-20px] pointer-events-none">
+            Сообщение
+        </div>
+
+        <!-- Cloud Sync Overlay -->
+        <div id="loading-overlay" class="fixed inset-0 bg-black/60 z-[9999] flex flex-col items-center justify-center text-white hidden">
+            <i class="fas fa-circle-notch fa-spin text-4xl mb-4 text-blue-500"></i>
+            <p class="font-bold">Синхронизация...</p>
+        </div>
+    </div> <!-- END app-content -->
 
     <script>
-        const tg = window.Telegram.WebApp;
+        // === НАСТРОЙКИ БЕЗОПАСНОСТИ ===
+        // ВАЖНО: ВПИШИТЕ СЮДА СВОЙ TELEGRAM ID
+        const ALLOWED_USER_IDS = [703834598, 703834598]; 
 
-        function hapticFeedback() {
-            if (tg && tg.HapticFeedback) {
-                tg.HapticFeedback.impactOccurred('light');
-            }
-        }
-
-        // App State (Variables initialized empty, populated asynchronously)
+        // State variables
         let transactions = [];
+        let categories = [];
         let loans = [];
         let templates = [];
-        let isDarkMode = localStorage.getItem('theme') === 'dark';
-        
-        const defaultCategories = {
-            expense: [
-                {id: 'c1', name: 'Продукты', icon: 'fa-shopping-basket', color: '#3b82f6', isCustom: false},
-                {id: 'c2', name: 'Кафе', icon: 'fa-coffee', color: '#f59e0b', isCustom: false},
-                {id: 'c3', name: 'Транспорт', icon: 'fa-car', color: '#8b5cf6', isCustom: false},
-                {id: 'c4', name: 'Дом', icon: 'fa-home', color: '#10b981', isCustom: false},
-                {id: 'c5', name: 'Развлечения', icon: 'fa-film', color: '#ec4899', isCustom: false},
-                {id: 'c6', name: 'Здоровье', icon: 'fa-heartbeat', color: '#ef4444', isCustom: false},
-                {id: 'c-loan', name: 'Кредиты и долги', icon: 'fa-landmark', color: '#64748b', isCustom: false},
-                {id: 'c7', name: 'Прочее', icon: 'fa-ellipsis-h', color: '#9ca3af', isCustom: false}
-            ],
-            income: [
-                {id: 'c8', name: 'Зарплата', icon: 'fa-money-bill-wave', color: '#10b981', isCustom: false},
-                {id: 'c9', name: 'Перевод', icon: 'fa-exchange-alt', color: '#3b82f6', isCustom: false},
-                {id: 'c10', name: 'Прочее', icon: 'fa-ellipsis-h', color: '#9ca3af', isCustom: false}
-            ]
-        };
-        let categories = JSON.parse(JSON.stringify(defaultCategories));
+        let currentType = 'expense';
+        let selectedCategory = null;
+        let expenseChart = null;
 
-        let currentAddType = 'expense';
-        let selectedCategoryId = null;
-        let editingTransactionId = null;
-        
-        // Analytics & UI State
-        let analyticsPeriod = 'month';
-        let analyticsDate = new Date();
-        let myChart = null;
-        let itemToDeleteId = null;
-        let itemToDeleteType = null;
-        let editingCategoryId = null;
+        const defaultCategories = [
+            { id: '1', name: 'Продукты', icon: 'fa-apple-whole', color: '#EF4444', type: 'expense' },
+            { id: '2', name: 'Транспорт', icon: 'fa-car', color: '#F59E0B', type: 'expense' },
+            { id: '3', name: 'Дом', icon: 'fa-house', color: '#3B82F6', type: 'expense' },
+            { id: '4', name: 'Зарплата', icon: 'fa-wallet', color: '#10B981', type: 'income' },
+            { id: '5', name: 'Перевод', icon: 'fa-money-bill-transfer', color: '#8B5CF6', type: 'income' },
+            { id: '6', name: 'Кредит', icon: 'fa-landmark', color: '#6366F1', type: 'expense' }
+        ];
 
-        // Custom Category State
-        let editorSelectedColor = '#3b82f6';
-        let editorSelectedIcon = 'fa-star';
-        
-        const availableColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#64748b', '#78716c'];
-        const availableIcons = ['fa-star', 'fa-heart', 'fa-car', 'fa-shopping-cart', 'fa-shopping-bag', 'fa-utensils', 'fa-coffee', 'fa-laptop', 'fa-mobile-alt', 'fa-gamepad', 'fa-music', 'fa-dumbbell', 'fa-paw', 'fa-gift', 'fa-tshirt', 'fa-home', 'fa-briefcase', 'fa-plane', 'fa-bus', 'fa-gas-pump', 'fa-film', 'fa-subway', 'fa-pills', 'fa-baby', 'fa-couch', 'fa-graduation-cap', 'fa-wrench', 'fa-tools', 'fa-bicycle', 'fa-camera'];
+        const paletteColors = ['#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#22C55E', '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9', '#3B82F6', '#6366F1', '#8B5CF6', '#A855F7', '#D946EF', '#F43F5E'];
+        const paletteIcons = ['fa-apple-whole', 'fa-car', 'fa-house', 'fa-cart-shopping', 'fa-utensils', 'fa-mug-hot', 'fa-film', 'fa-gamepad', 'fa-plane', 'fa-heart', 'fa-pills', 'fa-shirt', 'fa-paw', 'fa-gift', 'fa-lightbulb', 'fa-bolt', 'fa-mobile', 'fa-laptop', 'fa-book', 'fa-graduation-cap', 'fa-dumbbell', 'fa-scissors', 'fa-briefcase', 'fa-wallet', 'fa-money-bill', 'fa-chart-line', 'fa-piggy-bank', 'fa-landmark', 'fa-credit-card', 'fa-coins'];
 
-        function showToast(message, isError = false) {
-            const toast = document.getElementById('toast-notification');
-            const toastMsg = document.getElementById('toast-message');
-            const icon = toast.querySelector('i');
-            
-            toastMsg.textContent = message;
-            if (isError) {
-                icon.className = 'fas fa-exclamation-circle text-red-400 dark:text-red-500 mr-2 text-lg';
-            } else {
-                icon.className = 'fas fa-check-circle text-green-400 dark:text-green-500 mr-2 text-lg';
-            }
+        let selectedNewColor = paletteColors[0];
+        let selectedNewIcon = paletteIcons[0];
 
-            toast.classList.remove('-translate-y-24', 'opacity-0');
-            toast.classList.add('translate-y-0', 'opacity-100');
+        // Custom Prompt State
+        let promptCallback = null;
 
+        // --- Telegram Integration ---
+        const tg = window.Telegram.WebApp;
+        tg.expand();
+
+        function haptic(style = 'light') {
+            if (tg.HapticFeedback) tg.HapticFeedback.impactOccurred(style);
+        }
+
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.remove('opacity-0', 'translate-y-[-20px]');
             setTimeout(() => {
-                toast.classList.remove('translate-y-0', 'opacity-100');
-                toast.classList.add('-translate-y-24', 'opacity-0');
+                toast.classList.add('opacity-0', 'translate-y-[-20px]');
             }, 3000);
         }
 
-        // --- Cloud Storage System with Sharding (4KB limit bypass) ---
-        let useCloudStorage = false;
-
-        function loadFromCloudSharded(keyPrefix) {
-            return new Promise((resolve) => {
-                try {
-                    tg.CloudStorage.getItem(`${keyPrefix}_meta`, (err, countStr) => {
-                        if (err || !countStr) return resolve(null);
-                        const count = parseInt(countStr);
-                        if (isNaN(count) || count === 0) return resolve([]);
-                        
-                        const keys = [];
-                        for (let i = 0; i < count; i++) keys.push(`${keyPrefix}_${i}`);
-                        
-                        tg.CloudStorage.getItems(keys, (err, values) => {
-                            if (err) return resolve(null);
-                            let fullStr = '';
-                            for (let i = 0; i < count; i++) fullStr += (values[`${keyPrefix}_${i}`] || '');
-                            try { resolve(JSON.parse(fullStr)); } catch(e) { resolve(null); }
-                        });
-                    });
-                } catch (e) {
-                    console.warn("Cloud read error:", e);
-                    resolve(null);
-                }
-            });
-        }
-
-        function saveToCloudSharded(keyPrefix, data) {
-            if (!useCloudStorage) return;
-            try {
-                const jsonStr = JSON.stringify(data);
-                const chunks = [];
-                for (let i = 0; i < jsonStr.length; i += 3900) chunks.push(jsonStr.substring(i, i + 3900));
-                
-                tg.CloudStorage.setItem(`${keyPrefix}_meta`, chunks.length.toString(), (err) => {
-                    if(!err) {
-                        chunks.forEach((chunk, index) => {
-                            tg.CloudStorage.setItem(`${keyPrefix}_${index}`, chunk);
-                        });
-                    }
-                });
-            } catch (e) {
-                console.warn("Cloud write error:", e);
+        // --- Auth & Lock Screen Logic ---
+        window.onload = function() {
+            const lockScreen = document.getElementById('lock-screen');
+            const appContent = document.getElementById('app-content');
+            const userIdSpan = document.getElementById('lock-user-id');
+            
+            let userId = null;
+            if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
+                userId = tg.initDataUnsafe.user.id;
             }
-        }
 
-        async function initStorage() {
-            // Проверяем, поддерживается ли CloudStorage (появилось в Telegram Web App версии 6.9)
-            const isCloudSupported = tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9');
-
-            if (isCloudSupported) {
-                return new Promise((resolve) => {
-                    try {
-                        tg.CloudStorage.getKeys(async (err, keys) => {
-                            if (err) {
-                                console.warn("CloudStorage недоступно, используем локальную память.");
-                                loadFromLocal();
-                            } else {
-                                useCloudStorage = true;
-                                // Пробуем скачать данные из облака
-                                const cloudTxs = await loadFromCloudSharded('txs');
-                                const cloudLoans = await loadFromCloudSharded('loans');
-                                const cloudCats = await loadFromCloudSharded('cats');
-                                const cloudTpls = await loadFromCloudSharded('tpls');
-
-                                // Миграция: Если в облаке пусто, берём из браузера и заливаем в облако
-                                if (!cloudTxs && !cloudLoans && !cloudCats && !cloudTpls) {
-                                    loadFromLocal();
-                                    saveData(); 
-                                } else {
-                                    if (cloudTxs) transactions = cloudTxs;
-                                    if (cloudLoans) loans = cloudLoans;
-                                    if (cloudCats) categories = cloudCats;
-                                    if (cloudTpls) templates = cloudTpls;
-                                }
-                            }
-                            resolve();
-                        });
-                    } catch (e) {
-                        console.warn("Исключение при вызове CloudStorage, используем локальную память.");
-                        loadFromLocal();
-                        resolve();
-                    }
-                });
+            if (userId && ALLOWED_USER_IDS.includes(userId)) {
+                // Доступ разрешен
+                appContent.classList.remove('hidden');
+                initApp();
             } else {
-                console.warn("CloudStorage не поддерживается вашей версией Telegram, используем локальную память.");
-                loadFromLocal();
-                return Promise.resolve();
-            }
-        }
-
-        function loadFromLocal() {
-            if (localStorage.getItem('transactions')) transactions = JSON.parse(localStorage.getItem('transactions'));
-            if (localStorage.getItem('loans')) loans = JSON.parse(localStorage.getItem('loans'));
-            if (localStorage.getItem('templates')) templates = JSON.parse(localStorage.getItem('templates'));
-            if (localStorage.getItem('categories')) categories = JSON.parse(localStorage.getItem('categories'));
-        }
-
-        function saveData() {
-            // Всегда сохраняем локально на всякий случай
-            localStorage.setItem('transactions', JSON.stringify(transactions));
-            localStorage.setItem('loans', JSON.stringify(loans));
-            localStorage.setItem('categories', JSON.stringify(categories));
-            localStorage.setItem('templates', JSON.stringify(templates));
-
-            if (useCloudStorage) {
-                saveToCloudSharded('txs', transactions);
-                saveToCloudSharded('loans', loans);
-                saveToCloudSharded('cats', categories);
-                saveToCloudSharded('tpls', templates);
-            }
-        }
-
-        // ВАЖНО: Впишите сюда разрешенные Telegram ID (числа без кавычек через запятую)
-        const ALLOWED_USER_IDS = [703834598, 703834598]; 
-
-        window.onload = async function() {
-            if (tg && tg.initData) {
-                tg.ready();
-                tg.expand();
-                
-                // Сначала применяем тему, чтобы экран блокировки был красивым
-                if (tg.colorScheme === 'dark') {
-                    isDarkMode = true;
-                    document.documentElement.classList.add('dark');
-                } else {
-                    isDarkMode = false;
-                    document.documentElement.classList.remove('dark');
-                }
-                
-                // Проверка прав доступа
-                const userId = tg.initDataUnsafe?.user?.id;
-                
-                // Если ID не совпадает с разрешенными
-                if (userId && !ALLOWED_USER_IDS.includes(userId)) {
-                    // ПОЛНОСТЬЮ стираем весь интерфейс приложения и рисуем замок
-                    document.body.innerHTML = `
-                        <div class="fixed inset-0 bg-gray-100 dark:bg-[#121212] flex flex-col items-center justify-center p-6 text-center z-[999]">
-                            <div class="w-24 h-24 bg-red-100 dark:bg-red-900/30 text-red-500 rounded-full flex items-center justify-center text-5xl mb-6 shadow-lg">
-                                <i class="fas fa-lock"></i>
-                            </div>
-                            <h2 class="text-2xl font-bold text-gray-900 dark:text-white mb-2">Доступ закрыт</h2>
-                            <p class="text-gray-500 dark:text-gray-400 mb-6">Извините, но у вас нет прав для использования этого приложения.</p>
-                            <div class="bg-white dark:bg-[#1e1e1e] px-4 py-2 rounded-xl shadow-sm border border-gray-100 dark:border-gray-800">
-                                <span class="text-xs text-gray-400">Ваш Telegram ID:</span><br>
-                                <span class="font-mono font-bold text-gray-700 dark:text-gray-300">${userId}</span>
-                            </div>
-                        </div>
-                    `;
-                    return; // Полностью останавливаем загрузку логики и данных
-                }
-            }
-            
-            // Ждем завершения синхронизации с облаком
-            await initStorage();
-            
-            initTheme();
-            updateAllViews();
-            document.getElementById('date-input').valueAsDate = new Date();
-            
-            // Скрываем экран загрузки
-            const loader = document.getElementById('loading-overlay');
-            if (loader) {
-                loader.classList.add('opacity-0');
-                setTimeout(() => loader.classList.add('hidden'), 300);
+                // Доступ запрещен (или открыто в браузере без ТГ параметров)
+                lockScreen.style.display = 'flex';
+                userIdSpan.textContent = userId ? userId : 'Неизвестен (Не Telegram)';
+                // Мы не показываем appContent вообще
             }
         };
 
-        function updateAllViews() {
-            renderHome();
-            renderHistory();
-            renderAnalytics();
+        // --- Storage (Cloud + Local Fallback) ---
+        async function splitAndSaveToCloud(key, dataString) {
+            const CHUNK_SIZE = 4000; 
+            const chunks = [];
+            for (let i = 0; i < dataString.length; i += CHUNK_SIZE) {
+                chunks.push(dataString.substring(i, i + CHUNK_SIZE));
+            }
+            
+            let keysToRemove = [];
+            for(let i = chunks.length; i < 20; i++) keysToRemove.push(`${key}_chunk_${i}`);
+            
+            return new Promise((resolve, reject) => {
+                let saved = 0;
+                let hasError = false;
+                
+                const checkDone = () => {
+                    saved++;
+                    if (saved === chunks.length) {
+                        if (keysToRemove.length > 0) {
+                            tg.CloudStorage.removeItems(keysToRemove, (err) => { resolve(); });
+                        } else resolve();
+                    }
+                };
+
+                chunks.forEach((chunk, index) => {
+                    tg.CloudStorage.setItem(`${key}_chunk_${index}`, chunk, (err, success) => {
+                        if (err) { hasError = true; reject(err); }
+                        else if (!hasError) checkDone();
+                    });
+                });
+            });
+        }
+
+        async function loadAndMergeFromCloud(key) {
+            let keysToFetch = [];
+            for(let i=0; i<20; i++) keysToFetch.push(`${key}_chunk_${i}`);
+            
+            return new Promise((resolve, reject) => {
+                tg.CloudStorage.getItems(keysToFetch, (err, values) => {
+                    if (err) { reject(err); return; }
+                    let merged = "";
+                    for(let i=0; i<20; i++) {
+                        if(values[`${key}_chunk_${i}`]) merged += values[`${key}_chunk_${i}`];
+                    }
+                    resolve(merged);
+                });
+            });
+        }
+
+        function isCloudSupported() {
+            const version = tg.version || "0.0";
+            return parseFloat(version) >= 6.9;
+        }
+
+        async function initApp() {
+            applyTheme();
+            document.getElementById('loading-overlay').classList.remove('hidden');
+
+            try {
+                if (isCloudSupported()) {
+                    let cloudData = await loadAndMergeFromCloud('finance_app_data');
+                    
+                    if (!cloudData) {
+                        const localData = localStorage.getItem('finance_data');
+                        if (localData) {
+                            await splitAndSaveToCloud('finance_app_data', localData);
+                            cloudData = localData;
+                        }
+                    }
+                    
+                    if (cloudData) {
+                        const data = JSON.parse(cloudData);
+                        transactions = data.transactions || [];
+                        categories = data.categories || [];
+                        loans = data.loans || [];
+                        templates = data.templates || [];
+                    }
+                } else {
+                    const saved = localStorage.getItem('finance_data');
+                    if (saved) {
+                        const data = JSON.parse(saved);
+                        transactions = data.transactions || [];
+                        categories = data.categories || [];
+                        loans = data.loans || [];
+                        templates = data.templates || [];
+                    }
+                }
+            } catch(e) {
+                console.error("Storage error, fallback to local:", e);
+                const saved = localStorage.getItem('finance_data');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    transactions = data.transactions || [];
+                    categories = data.categories || [];
+                    loans = data.loans || [];
+                    templates = data.templates || [];
+                }
+            }
+
+            if (categories.length === 0) categories = [...defaultCategories];
+
+            updateMainScreen();
+            updateHistoryScreen();
+            renderLoans();
+            document.getElementById('loading-overlay').classList.add('hidden');
+        }
+
+        async function saveData() {
+            const dataObj = { transactions, categories, loans, templates };
+            const dataString = JSON.stringify(dataObj);
+            
+            localStorage.setItem('finance_data', dataString);
+
+            if (isCloudSupported()) {
+                document.getElementById('loading-overlay').classList.remove('hidden');
+                try {
+                    await splitAndSaveToCloud('finance_app_data', dataString);
+                } catch(e) {
+                    console.error("Cloud save error:", e);
+                } finally {
+                    document.getElementById('loading-overlay').classList.add('hidden');
+                }
+            }
+            
+            updateMainScreen();
+            updateChart();
+            updateHistoryScreen();
             renderLoans();
         }
 
-        function initTheme() {
-            if (isDarkMode) document.documentElement.classList.add('dark');
-            else document.documentElement.classList.remove('dark');
+        // --- Custom Prompt Logic ---
+        function openCustomPrompt(title, message, placeholder, type = 'text', callback) {
+            document.getElementById('prompt-title').textContent = title;
+            document.getElementById('prompt-message').textContent = message;
+            
+            const input = document.getElementById('prompt-input');
+            input.type = type;
+            if(type === 'number') input.inputMode = 'decimal';
+            input.placeholder = placeholder;
+            input.value = '';
+            input.classList.remove('border-red-500');
+            
+            promptCallback = callback;
+            
+            const modal = document.getElementById('custom-prompt-modal');
+            const content = document.getElementById('prompt-content');
+            modal.classList.remove('hidden');
+            setTimeout(() => content.classList.remove('scale-95'), 10);
+            input.focus();
         }
 
-        function toggleTheme() {
-            hapticFeedback();
-            isDarkMode = !isDarkMode;
-            localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
-            initTheme();
-            renderAnalytics(); // Refresh chart colors
+        function closeCustomPrompt() {
+            const modal = document.getElementById('custom-prompt-modal');
+            const content = document.getElementById('prompt-content');
+            content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 200);
+            promptCallback = null;
         }
 
-        function formatMoney(amount) {
-            return new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(amount);
+        function submitCustomPrompt() {
+            const input = document.getElementById('prompt-input');
+            const val = input.value.trim();
+            if(!val || (input.type === 'number' && parseFloat(val) <= 0)) {
+                input.classList.add('border-red-500');
+                haptic('heavy');
+                return;
+            }
+            if(promptCallback) promptCallback(val);
+            closeCustomPrompt();
         }
 
-        function generateId() {
-            return Date.now().toString(36) + Math.random().toString(36).substr(2);
-        }
-
-        function getCategoryById(id, type) {
-            const list = categories[type] || [];
-            return list.find(c => c.id === id) || { name: 'Неизвестно', icon: 'fa-question', color: '#9ca3af' };
-        }
-
+        // --- UI Updates ---
         function switchTab(tabId) {
-            hapticFeedback();
-            document.querySelectorAll('.screen-view').forEach(el => {
-                if (el.id !== 'add-screen') el.classList.add('hidden');
-            });
-            document.getElementById(`${tabId}-screen`).classList.remove('hidden');
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.getElementById(`${tabId}-screen`).classList.add('active');
             
-            const titles = { home: 'Мои Финансы', history: 'История операций', analytics: 'Аналитика', loans: 'Кредиты и долги' };
-            document.getElementById('header-title').textContent = titles[tabId];
-            
-            document.querySelectorAll('.nav-btn').forEach(btn => {
-                if (btn.getAttribute('data-target') === tabId) {
+            ['main', 'history', 'analytics', 'loans'].forEach(id => {
+                const btn = document.getElementById(`nav-${id}`);
+                if (!btn) return;
+                if (id === tabId) {
                     btn.classList.remove('text-gray-400', 'dark:text-gray-500');
                     btn.classList.add('text-blue-500');
                 } else {
-                    btn.classList.add('text-gray-400', 'dark:text-gray-500');
                     btn.classList.remove('text-blue-500');
+                    btn.classList.add('text-gray-400', 'dark:text-gray-500');
                 }
             });
-            if (tabId === 'analytics') renderAnalytics();
+            haptic();
+
+            if(tabId === 'history') updateHistoryScreen();
+            if(tabId === 'analytics') updateChart();
+            if(tabId === 'main') updateMainScreen();
+            if(tabId === 'loans') renderLoans();
         }
 
-        function openSettingsModal() { document.getElementById('settings-modal').classList.remove('hidden'); }
-        function closeSettingsModal() { document.getElementById('settings-modal').classList.add('hidden'); }
+        function updateMainScreen() {
+            let total = 0, income = 0, expense = 0;
+            transactions.forEach(t => {
+                if (t.type === 'income') { income += t.amount; total += t.amount; } 
+                else { expense += t.amount; total -= t.amount; }
+            });
 
-        function exportData() {
-            const data = { transactions, loans, categories, templates };
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.download = `finance_backup_${new Date().toISOString().split('T')[0]}.json`;
-            a.href = url;
-            a.click();
-            URL.revokeObjectURL(url);
-            closeSettingsModal();
-            showToast('Резервная копия сохранена!');
-        }
+            document.getElementById('total-balance').textContent = `${total.toLocaleString()} ₽`;
+            document.getElementById('total-income').textContent = `${income.toLocaleString()} ₽`;
+            document.getElementById('total-expense').textContent = `${expense.toLocaleString()} ₽`;
 
-        function handleImportData(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                try {
-                    const data = JSON.parse(e.target.result);
-                    if (data.transactions) transactions = data.transactions;
-                    if (data.loans) loans = data.loans;
-                    if (data.categories) categories = data.categories;
-                    if (data.templates) templates = data.templates;
-                    saveData();
-                    updateAllViews();
-                    closeSettingsModal();
-                    showToast('Данные восстановлены!');
-                } catch (err) {
-                    closeSettingsModal();
-                    showToast('Ошибка чтения файла', true);
-                }
-            };
-            reader.readAsText(file);
-            event.target.value = ''; 
-        }
-
-        function openAddScreen(txId = null) {
-            hapticFeedback();
-            editingTransactionId = txId;
-            const screen = document.getElementById('add-screen');
-            screen.classList.remove('hidden');
-            screen.classList.add('flex');
+            // Recent 5 transactions
+            const recentList = document.getElementById('recent-transactions');
+            recentList.innerHTML = '';
             
-            if (txId) {
-                const tx = transactions.find(t => t.id === txId);
-                if (tx) {
-                    document.getElementById('add-screen-title').textContent = 'Редактировать';
-                    document.getElementById('amount-input').value = tx.amount;
-                    document.getElementById('note-input').value = tx.note || '';
-                    document.getElementById('date-input').value = tx.date;
-                    setAddType(tx.type);
-                    selectedCategoryId = tx.categoryId;
-                    document.getElementById('save-template-btn').classList.add('hidden');
-                }
+            const recentTransactions = [...transactions].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0, 5);
+            
+            if (recentTransactions.length === 0) {
+                recentList.innerHTML = '<p class="text-gray-500 text-center py-4">Нет операций</p>';
             } else {
-                document.getElementById('add-screen-title').textContent = 'Новая операция';
-                document.getElementById('amount-input').value = '';
-                document.getElementById('note-input').value = '';
-                document.getElementById('date-input').valueAsDate = new Date();
-                document.getElementById('save-template-btn').classList.remove('hidden');
-                setAddType(currentAddType);
+                recentTransactions.forEach(t => {
+                    const cat = categories.find(c => c.id === t.categoryId) || defaultCategories[0];
+                    recentList.innerHTML += createTransactionHTML(t, cat);
+                });
+            }
+
+            renderTemplates();
+        }
+
+        function updateHistoryScreen() {
+            const list = document.getElementById('history-transactions-list');
+            if(!list) return;
+            list.innerHTML = '';
+            
+            if (transactions.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-500 mt-10">История операций пуста</p>';
+                return;
+            }
+
+            const grouped = {};
+            const sorted = [...transactions].sort((a,b) => new Date(b.date) - new Date(a.date));
+            sorted.forEach(t => { 
+                // Group by simple date string (YYYY-MM-DD) extracted from ISO string
+                const dateKey = new Date(t.date).toDateString(); 
+                (grouped[dateKey] = grouped[dateKey] || []).push(t); 
+            });
+
+            Object.keys(grouped).forEach(dateKey => {
+                const dateObj = new Date(dateKey);
+                const dateStr = dateObj.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+                
+                let html = `<div class="mb-4"><p class="text-xs font-bold text-gray-500 mb-2 uppercase ml-2">${dateStr}</p><div class="space-y-2">`;
+                grouped[dateKey].forEach(t => {
+                    const cat = categories.find(c => c.id === t.categoryId) || defaultCategories[0];
+                    html += createTransactionHTML(t, cat);
+                });
+                html += `</div></div>`;
+                list.innerHTML += html;
+            });
+        }
+
+        function createTransactionHTML(t, cat) {
+            const isIncome = t.type === 'income';
+            return `
+                <div class="flex justify-between items-center bg-white dark:bg-darkCard p-3 rounded-2xl shadow-sm">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}">
+                            <i class="fas ${cat.icon}"></i>
+                        </div>
+                        <div>
+                            <p class="font-bold text-sm">${cat.name}</p>
+                            ${t.note ? `<p class="text-xs text-gray-400">${t.note}</p>` : ''}
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <p class="font-bold ${isIncome ? 'text-green-500' : 'text-gray-800 dark:text-white'}">
+                            ${isIncome ? '+' : '-'}${t.amount.toLocaleString()} ₽
+                        </p>
+                        <button onclick="deleteTransaction('${t.id}')" class="text-xs text-red-500 mt-1"><i class="fas fa-trash"></i></button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('expenseChart');
+            if (!ctx) return;
+            const legend = document.getElementById('chart-legend');
+            
+            const expenses = transactions.filter(t => t.type === 'expense');
+            let totalExp = 0;
+            const catTotals = {};
+
+            expenses.forEach(t => {
+                totalExp += t.amount;
+                catTotals[t.categoryId] = (catTotals[t.categoryId] || 0) + t.amount;
+            });
+
+            document.getElementById('chart-total').textContent = `${totalExp.toLocaleString()} ₽`;
+            legend.innerHTML = '';
+
+            const sortedCats = Object.keys(catTotals).sort((a,b) => catTotals[b] - catTotals[a]);
+            const labels = [];
+            const data = [];
+            const bgColors = [];
+
+            if (sortedCats.length === 0) {
+                legend.innerHTML = '<p class="text-center text-gray-500 mt-4">Нет расходов</p>';
+                if (expenseChart) expenseChart.destroy();
+                expenseChart = null;
+                return;
+            }
+
+            sortedCats.forEach(catId => {
+                const cat = categories.find(c => c.id === catId);
+                if (cat) {
+                    labels.push(cat.name);
+                    data.push(catTotals[catId]);
+                    bgColors.push(cat.color);
+                    
+                    const percent = Math.round((catTotals[catId] / totalExp) * 100);
+                    legend.innerHTML += `
+                        <div class="flex justify-between items-center p-2">
+                            <div class="flex items-center gap-2">
+                                <div class="w-3 h-3 rounded-full" style="background-color: ${cat.color}"></div>
+                                <span class="text-sm font-medium">${cat.name}</span>
+                            </div>
+                            <div class="text-right">
+                                <span class="text-sm font-bold">${catTotals[catId].toLocaleString()} ₽</span>
+                                <span class="text-xs text-gray-500 ml-2">${percent}%</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            });
+
+            if (!expenseChart) {
+                expenseChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: { labels, datasets: [{ data, backgroundColor: bgColors, borderWidth: 0 }] },
+                    options: { 
+                        cutout: '80%', 
+                        plugins: { legend: { display: false } },
+                        layout: { padding: 10 }
+                    }
+                });
+            } else {
+                expenseChart.data.labels = labels;
+                expenseChart.data.datasets[0].data = data;
+                expenseChart.data.datasets[0].backgroundColor = bgColors;
+                expenseChart.update();
             }
         }
 
-        function closeAddScreen() {
-            document.getElementById('add-screen').classList.add('hidden');
-            document.getElementById('add-screen').classList.remove('flex');
+        // --- Templates ---
+        function renderTemplates() {
+            const container = document.getElementById('templates-container');
+            container.innerHTML = '';
+            
+            if (templates.length === 0) {
+                container.innerHTML = '<p class="text-sm text-gray-400 italic px-2">Нет шаблонов</p>';
+                return;
+            }
+
+            templates.forEach(tpl => {
+                const cat = categories.find(c => c.id === tpl.categoryId) || defaultCategories[0];
+                container.innerHTML += `
+                    <button onclick="useTemplate('${tpl.id}')" class="flex-shrink-0 bg-white dark:bg-darkCard p-3 rounded-2xl shadow-sm text-left w-32 relative">
+                        <div class="w-8 h-8 rounded-full flex items-center justify-center text-white mb-2" style="background-color: ${cat.color}">
+                            <i class="fas ${cat.icon} text-sm"></i>
+                        </div>
+                        <p class="font-bold text-sm truncate">${tpl.name}</p>
+                        <p class="text-xs ${tpl.type === 'income' ? 'text-green-500' : 'text-gray-500'}">${tpl.amount} ₽</p>
+                        <div onclick="event.stopPropagation(); deleteTemplate('${tpl.id}')" class="absolute top-2 right-2 text-gray-300 hover:text-red-500"><i class="fas fa-times text-xs"></i></div>
+                    </button>
+                `;
+            });
         }
 
-        function setAddType(type) {
-            hapticFeedback();
-            currentAddType = type;
-            const expBtn = document.getElementById('type-expense');
-            const incBtn = document.getElementById('type-income');
+        function useTemplate(id) {
+            const tpl = templates.find(t => t.id === id);
+            if (!tpl) return;
+            
+            transactions.push({
+                id: Date.now().toString(),
+                amount: tpl.amount,
+                type: tpl.type,
+                categoryId: tpl.categoryId,
+                note: `Шаблон: ${tpl.name}`,
+                date: new Date().toISOString()
+            });
+            haptic('success');
+            showToast(`Шаблон "${tpl.name}" применен!`);
+            saveData();
+        }
+
+        function deleteTemplate(id) {
+            templates = templates.filter(t => t.id !== id);
+            haptic('light');
+            saveData();
+        }
+
+        // --- Add Transaction ---
+        function openAddModal() {
+            document.getElementById('add-modal').classList.remove('hidden');
+            document.getElementById('amount-input').value = '';
+            document.getElementById('note-input').value = '';
+            document.getElementById('save-template').checked = false;
+            setTransactionType('expense');
+            haptic();
+        }
+
+        function setTransactionType(type) {
+            currentType = type;
+            const btnExp = document.getElementById('btn-expense');
+            const btnInc = document.getElementById('btn-income');
             
             if (type === 'expense') {
-                expBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg shadow bg-white dark:bg-gray-700 text-expense';
-                incBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg text-gray-500';
+                btnExp.className = 'flex-1 py-2 rounded-lg bg-white dark:bg-gray-600 shadow-sm font-medium transition-all';
+                btnInc.className = 'flex-1 py-2 rounded-lg text-gray-500 dark:text-gray-400 font-medium transition-all';
             } else {
-                incBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg shadow bg-white dark:bg-gray-700 text-income';
-                expBtn.className = 'flex-1 py-2 text-sm font-bold rounded-lg text-gray-500';
+                btnInc.className = 'flex-1 py-2 rounded-lg bg-white dark:bg-gray-600 shadow-sm font-medium transition-all';
+                btnExp.className = 'flex-1 py-2 rounded-lg text-gray-500 dark:text-gray-400 font-medium transition-all';
             }
             renderCategoriesGrid();
-            renderTemplatesList();
-        }
-
-        function selectCategory(id) {
-            selectedCategoryId = id;
-            document.querySelectorAll('.cat-item').forEach(el => el.classList.remove('ring-4', 'ring-blue-200', 'dark:ring-blue-900', 'scale-110'));
-            const selected = document.getElementById(`cat-${id}`);
-            if(selected) selected.classList.add('ring-4', 'ring-blue-200', 'dark:ring-blue-900', 'scale-110');
         }
 
         function renderCategoriesGrid() {
-            const container = document.getElementById('categories-grid');
-            container.innerHTML = '';
-            const list = categories[currentAddType] || [];
+            const grid = document.getElementById('categories-grid');
+            grid.innerHTML = '';
+            const filtered = categories.filter(c => c.type === currentType);
             
-            list.forEach(cat => {
-                const div = document.createElement('div');
-                div.className = 'flex flex-col items-center gap-1 cursor-pointer transition-transform';
-                div.onclick = () => selectCategory(cat.id);
-                div.innerHTML = `
-                    <div id="cat-${cat.id}" class="cat-item w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg transition-all" style="background-color: ${cat.color}">
-                        <i class="fas ${cat.icon}"></i>
-                    </div>
-                    <span class="text-[10px] text-gray-500 text-center w-full truncate px-1">${cat.name}</span>
+            if (filtered.length > 0) selectedCategory = filtered[0].id;
+
+            filtered.forEach(cat => {
+                const isSelected = selectedCategory === cat.id;
+                grid.innerHTML += `
+                    <button onclick="selectCategory('${cat.id}')" class="flex flex-col items-center gap-1 p-2 rounded-xl transition-all ${isSelected ? 'bg-gray-200 dark:bg-gray-700 transform scale-105' : 'opacity-70'}">
+                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}">
+                            <i class="fas ${cat.icon}"></i>
+                        </div>
+                        <span class="text-[10px] font-medium text-center leading-tight">${cat.name}</span>
+                    </button>
                 `;
-                container.appendChild(div);
             });
-            
-            if (!editingTransactionId && list.length > 0) selectCategory(list[0].id);
-            else if (editingTransactionId) selectCategory(selectedCategoryId);
+        }
+
+        function selectCategory(id) {
+            selectedCategory = id;
+            renderCategoriesGrid();
+            haptic('light');
         }
 
         function saveTransaction() {
-            hapticFeedback();
-            const amount = parseFloat(document.getElementById('amount-input').value);
-            if (!amount || amount <= 0) return showToast('Введите сумму', true);
-            if (!selectedCategoryId) return showToast('Выберите категорию', true);
+            const amountInput = document.getElementById('amount-input');
+            const amount = parseFloat(amountInput.value);
+            const note = document.getElementById('note-input').value;
+            const isTemplate = document.getElementById('save-template').checked;
 
-            const newTx = {
-                id: editingTransactionId || generateId(),
-                type: currentAddType,
-                amount: amount,
-                categoryId: selectedCategoryId,
-                date: document.getElementById('date-input').value,
-                note: document.getElementById('note-input').value,
-                timestamp: editingTransactionId ? transactions.find(t=>t.id === editingTransactionId).timestamp : Date.now()
-            };
-
-            if (editingTransactionId) {
-                const index = transactions.findIndex(t => t.id === editingTransactionId);
-                if(index !== -1) transactions[index] = newTx;
-            } else {
-                transactions.push(newTx);
-            }
-            
-            transactions.sort((a, b) => new Date(b.date) - new Date(a.date) || b.timestamp - a.timestamp);
-            saveData();
-            updateAllViews();
-            closeAddScreen();
-        }
-
-        function renderTemplatesList() {
-            const container = document.getElementById('templates-list');
-            container.innerHTML = '';
-            const relevantTemplates = templates.filter(t => t.type === currentAddType);
-            
-            if (relevantTemplates.length === 0) {
-                container.innerHTML = '<span class="text-xs text-gray-400 italic py-2">Нет шаблонов</span>';
+            if (isNaN(amount) || amount <= 0) {
+                amountInput.classList.add('text-red-500');
+                setTimeout(() => amountInput.classList.remove('text-red-500'), 500);
+                haptic('heavy');
                 return;
             }
 
-            relevantTemplates.forEach(t => {
-                const cat = getCategoryById(t.categoryId, t.type);
-                const btn = document.createElement('button');
-                btn.className = 'shrink-0 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 flex items-center gap-2 hover:bg-gray-100 dark:hover:bg-gray-700 transition';
-                btn.onclick = () => {
-                    document.getElementById('amount-input').value = t.amount;
-                    document.getElementById('note-input').value = t.note;
-                    selectCategory(t.categoryId);
-                };
-                btn.innerHTML = `
-                    <div class="w-6 h-6 rounded-full flex items-center justify-center text-white text-[10px]" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
-                    <div class="text-left">
-                        <div class="text-xs font-bold text-gray-800 dark:text-gray-200">${t.name}</div>
-                        <div class="text-[10px] text-gray-500">${t.amount} ₽</div>
-                    </div>
-                `;
-                container.appendChild(btn);
-            });
-        }
-
-        function saveAsTemplate() {
-            const amount = parseFloat(document.getElementById('amount-input').value);
-            if (!amount || amount <= 0) {
-                const amtInput = document.getElementById('amount-input');
-                amtInput.classList.add('text-red-500');
-                setTimeout(() => amtInput.classList.remove('text-red-500'), 800);
-                return;
-            }
-            document.getElementById('template-name-input').value = '';
-            document.getElementById('save-template-modal').classList.remove('hidden');
-            setTimeout(() => document.getElementById('template-name-input').focus(), 100);
-        }
-
-        function closeSaveTemplateModal() { document.getElementById('save-template-modal').classList.add('hidden'); }
-
-        function confirmSaveTemplate() {
-            const amount = parseFloat(document.getElementById('amount-input').value);
-            const name = document.getElementById('template-name-input').value.trim();
-            if (!name) {
-                const nameInput = document.getElementById('template-name-input');
-                nameInput.classList.add('border-red-500', 'ring-1', 'ring-red-500');
-                setTimeout(() => nameInput.classList.remove('border-red-500', 'ring-1', 'ring-red-500'), 800);
-                return;
-            }
-            templates.push({
-                id: generateId(), name, type: currentAddType, amount,
-                categoryId: selectedCategoryId, note: document.getElementById('note-input').value
-            });
-            saveData();
-            renderTemplatesList();
-            closeSaveTemplateModal();
-            showToast('Шаблон сохранен');
-        }
-
-        function openTemplatesManageModal() {
-            document.getElementById('templates-modal').classList.remove('hidden');
-            renderManageTemplatesList();
-        }
-        
-        function closeTemplatesManageModal() {
-            document.getElementById('templates-modal').classList.add('hidden');
-            renderTemplatesList();
-        }
-
-        function renderManageTemplatesList() {
-            const container = document.getElementById('manage-templates-list');
-            container.innerHTML = '';
-            if (templates.length === 0) {
-                container.innerHTML = '<p class="text-center text-gray-500 mt-4">Шаблонов нет</p>';
-                return;
-            }
-            templates.forEach(t => {
-                const cat = getCategoryById(t.categoryId, t.type);
-                const el = document.createElement('div');
-                el.className = 'flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-3 border border-gray-100 dark:border-gray-700';
-                el.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
-                        <div>
-                            <div class="font-bold text-sm">${t.name}</div>
-                            <div class="text-xs text-gray-500">${t.type === 'expense' ? 'Расход' : 'Доход'} • ${t.amount} ₽</div>
-                        </div>
-                    </div>
-                    <button onclick="openDeleteModal('${t.id}', 'template', 'Удалить шаблон?', 'Вы уверены?')" class="p-2 text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
-                `;
-                container.appendChild(el);
-            });
-        }
-
-        function renderHome() {
-            const currentMonth = new Date().getMonth();
-            const currentYear = new Date().getFullYear();
-            let balance = 0, mIncome = 0, mExpense = 0;
-
-            transactions.forEach(t => {
-                const tDate = new Date(t.date);
-                if (t.type === 'income') balance += t.amount;
-                else balance -= t.amount;
-
-                if (tDate.getMonth() === currentMonth && tDate.getFullYear() === currentYear) {
-                    if (t.type === 'income') mIncome += t.amount;
-                    else mExpense += t.amount;
-                }
-            });
-
-            document.getElementById('total-balance').textContent = formatMoney(balance);
-            document.getElementById('month-income').textContent = formatMoney(mIncome);
-            document.getElementById('month-expense').textContent = formatMoney(mExpense);
-
-            const recentContainer = document.getElementById('recent-transactions');
-            recentContainer.innerHTML = '';
-            transactions.slice(0, 5).forEach(t => recentContainer.appendChild(createTransactionElement(t)));
-            if (transactions.length === 0) recentContainer.innerHTML = '<p class="text-center text-gray-400 text-sm py-4">Нет операций</p>';
-        }
-
-        function renderHistory() {
-            const container = document.getElementById('history-list');
-            container.innerHTML = '';
-            if (transactions.length === 0) {
-                container.innerHTML = '<div class="text-center text-gray-400 mt-10"><i class="fas fa-box-open text-4xl mb-3"></i><p>История пуста</p></div>';
-                return;
-            }
-            const grouped = transactions.reduce((acc, t) => {
-                if (!acc[t.date]) acc[t.date] = [];
-                acc[t.date].push(t);
-                return acc;
-            }, {});
-
-            Object.keys(grouped).sort((a, b) => new Date(b) - new Date(a)).forEach(date => {
-                const dateTitle = new Date(date).toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
-                const groupDiv = document.createElement('div');
-                groupDiv.innerHTML = `<h4 class="text-sm font-bold text-gray-500 dark:text-gray-400 mb-3 ml-2 sticky top-0 bg-gray-100 dark:bg-darkBg py-1 z-10">${dateTitle}</h4>`;
-                grouped[date].forEach(t => groupDiv.appendChild(createTransactionElement(t, true)));
-                container.appendChild(groupDiv);
-            });
-        }
-
-        function createTransactionElement(t, showControls = false) {
-            const cat = getCategoryById(t.categoryId, t.type);
-            const isExpense = t.type === 'expense';
-            const el = document.createElement('div');
-            el.className = 'flex justify-between items-center bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm mb-2 border border-gray-50 dark:border-gray-800';
-            
-            let controls = showControls ? `
-                <div class="flex flex-col gap-2 ml-3 pl-3 border-l border-gray-100 dark:border-gray-700">
-                    <button onclick="openAddScreen('${t.id}')" class="text-gray-400 hover:text-blue-500"><i class="fas fa-pen"></i></button>
-                    <button onclick="openDeleteModal('${t.id}', 'transaction', 'Удалить операцию?', 'Сумма будет вычтена из статистики.')" class="text-gray-400 hover:text-red-500"><i class="fas fa-trash"></i></button>
-                </div>` : '';
-
-            el.innerHTML = `
-                <div class="flex items-center gap-4 flex-1 min-w-0">
-                    <div class="w-12 h-12 rounded-2xl flex items-center justify-center text-white text-lg shrink-0" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
-                    <div class="min-w-0 flex-1">
-                        <p class="font-bold text-gray-900 dark:text-gray-100 truncate">${cat.name}</p>
-                        ${t.note ? `<p class="text-xs text-gray-500 dark:text-gray-400 truncate">${t.note}</p>` : ''}
-                    </div>
-                </div>
-                <div class="text-right flex items-center shrink-0">
-                    <span class="font-bold ${isExpense ? 'text-gray-900 dark:text-gray-100' : 'text-income'}">${isExpense ? '-' : '+'}${formatMoney(t.amount)}</span>
-                    ${controls}
-                </div>
-            `;
-            return el;
-        }
-
-        function setAnalyticsPeriod(period) {
-            analyticsPeriod = period;
-            ['day', 'month', 'year'].forEach(p => {
-                const btn = document.getElementById(`btn-period-${p}`);
-                btn.className = (p === period) 
-                    ? 'flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white'
-                    : 'flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500';
-            });
-            renderAnalytics();
-        }
-
-        function changeAnalyticsDate(delta) {
-            if (analyticsPeriod === 'day') analyticsDate.setDate(analyticsDate.getDate() + delta);
-            else if (analyticsPeriod === 'month') analyticsDate.setMonth(analyticsDate.getMonth() + delta);
-            else if (analyticsPeriod === 'year') analyticsDate.setFullYear(analyticsDate.getFullYear() + delta);
-            renderAnalytics();
-        }
-
-        function onAnalyticsDateSelect(val) {
-            if (val) {
-                analyticsDate = new Date(val);
-                renderAnalytics();
-            }
-        }
-
-        function renderAnalytics() {
-            const opts = (analyticsPeriod === 'day') ? {day:'numeric',month:'long',year:'numeric'} : (analyticsPeriod === 'month') ? {month:'long',year:'numeric'} : {year:'numeric'};
-            document.getElementById('analytics-date-display').textContent = analyticsDate.toLocaleDateString('ru-RU', opts);
-            document.getElementById('analytics-date-input').value = analyticsDate.toISOString().split('T')[0];
-
-            const filtered = transactions.filter(t => {
-                if (t.type !== 'expense') return false;
-                const d = new Date(t.date);
-                if (analyticsPeriod === 'day') return d.toDateString() === analyticsDate.toDateString();
-                if (analyticsPeriod === 'month') return d.getMonth() === analyticsDate.getMonth() && d.getFullYear() === analyticsDate.getFullYear();
-                return d.getFullYear() === analyticsDate.getFullYear();
-            });
-
-            let total = 0;
-            const catTotals = {};
-            filtered.forEach(t => { total += t.amount; catTotals[t.categoryId] = (catTotals[t.categoryId] || 0) + t.amount; });
-
-            document.getElementById('chart-total').textContent = formatMoney(total);
-            const container = document.getElementById('analytics-details');
-            container.innerHTML = '';
-            
-            const labels = [], data = [], colors = [];
-            if (total === 0) {
-                container.innerHTML = '<p class="text-center text-gray-400 py-4">Нет расходов в этом периоде</p>';
-                labels.push('Нет данных'); data.push(1); colors.push(isDarkMode ? '#374151' : '#e5e7eb');
-            } else {
-                Object.keys(catTotals).sort((a, b) => catTotals[b] - catTotals[a]).forEach(catId => {
-                    const cat = getCategoryById(catId, 'expense');
-                    const amount = catTotals[catId];
-                    labels.push(cat.name); data.push(amount); colors.push(cat.color);
-                    
-                    const el = document.createElement('div');
-                    el.className = 'flex items-center justify-between bg-white dark:bg-darkCard p-3 rounded-2xl border border-gray-50 dark:border-gray-800';
-                    el.innerHTML = `
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
-                            <div><p class="font-bold text-sm">${cat.name}</p><p class="text-xs text-gray-500">${((amount / total) * 100).toFixed(1)}%</p></div>
-                        </div>
-                        <span class="font-bold">${formatMoney(amount)}</span>`;
-                    container.appendChild(el);
+            if (isTemplate) {
+                closeModals();
+                openCustomPrompt('Название шаблона', 'Введите короткое имя для этого платежа', 'Например: Кофе', 'text', (templateName) => {
+                    templates.push({
+                        id: Date.now().toString() + '_tpl',
+                        name: templateName,
+                        amount: amount,
+                        type: currentType,
+                        categoryId: selectedCategory
+                    });
+                    finalizeTransactionSave(amount, note);
+                    showToast('Шаблон и операция сохранены!');
                 });
+            } else {
+                finalizeTransactionSave(amount, note);
+                showToast('Операция добавлена!');
             }
-            
-            const ctx = document.getElementById('expenseChart').getContext('2d');
-            if (myChart) myChart.destroy();
-            Chart.defaults.color = isDarkMode ? '#9ca3af' : '#6b7280';
-            myChart = new Chart(ctx, {
-                type: 'doughnut',
-                data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0 }] },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '75%', plugins: { legend: { display: false } } }
+        }
+
+        function finalizeTransactionSave(amount, note) {
+            transactions.push({
+                id: Date.now().toString(),
+                amount,
+                type: currentType,
+                categoryId: selectedCategory,
+                note,
+                date: new Date().toISOString()
             });
+
+            saveData();
+            closeModals();
+            haptic('success');
         }
 
-        function openLoanModal() { document.getElementById('loan-name').value = ''; document.getElementById('loan-total').value = ''; document.getElementById('loan-paid').value = ''; document.getElementById('loan-modal').classList.remove('hidden'); }
-        function closeLoanModal() { document.getElementById('loan-modal').classList.add('hidden'); }
-        function saveLoan() {
-            const name = document.getElementById('loan-name').value;
-            const total = parseFloat(document.getElementById('loan-total').value);
-            if (!name || !total || total <= 0) return showToast('Заполните данные корректно', true);
-            loans.push({ id: generateId(), name, totalAmount: total, paidAmount: parseFloat(document.getElementById('loan-paid').value) || 0 });
-            saveData(); renderLoans(); closeLoanModal();
+        function deleteTransaction(id) {
+            const tr = transactions.find(t => t.id === id);
+            if(tr && tr.loanId && tr.note.startsWith('Платеж:')) {
+                const loan = loans.find(l => l.id === tr.loanId);
+                if(loan) loan.paid -= tr.amount; // Revert loan progress
+            }
+            transactions = transactions.filter(t => t.id !== id);
+            saveData();
+            haptic('light');
         }
 
-        function renderLoans() {
-            const container = document.getElementById('loans-list');
-            container.innerHTML = '';
-            if (loans.length === 0) return container.innerHTML = '<p class="text-center text-gray-500 mt-10">Нет активных долгов</p>';
-            loans.forEach(loan => {
-                const percent = Math.min(100, Math.round((loan.paidAmount / loan.totalAmount) * 100));
-                const remaining = loan.totalAmount - loan.paidAmount;
-                const el = document.createElement('div');
-                el.className = 'bg-white dark:bg-darkCard p-5 rounded-3xl shadow-sm border border-gray-50 dark:border-gray-800 relative';
-                el.innerHTML = `
-                    <button onclick="openDeleteModal('${loan.id}', 'loan', 'Удалить запись?', 'История платежей останется в расходах.')" class="absolute top-4 right-4 text-gray-300 hover:text-red-500"><i class="fas fa-trash"></i></button>
-                    <h3 class="font-bold text-lg mb-1">${loan.name}</h3>
-                    <p class="text-sm text-gray-500 mb-4">Осталось: <span class="font-bold text-gray-800 dark:text-gray-200">${formatMoney(remaining)}</span></p>
-                    <div class="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-3 mb-2"><div class="bg-blue-500 h-3 rounded-full transition-all duration-500" style="width: ${percent}%"></div></div>
-                    <div class="flex justify-between text-xs text-gray-500 mb-5"><span>Выплачено: ${formatMoney(loan.paidAmount)}</span><span>Всего: ${formatMoney(loan.totalAmount)}</span></div>
-                    <button onclick="addLoanPayment('${loan.id}')" class="w-full bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400 py-2.5 rounded-xl font-bold text-sm flex justify-center items-center"><i class="fas fa-check-circle mr-2"></i> Внести платеж</button>
-                `;
-                container.appendChild(el);
-            });
-        }
-
-        function addLoanPayment(id) {
-            const loan = loans.find(l => l.id === id);
-            if (!loan) return;
-            const amount = parseFloat(prompt(`Введите сумму платежа для "${loan.name}":`));
-            if (!amount || amount <= 0) return;
-            loan.paidAmount += amount;
-            transactions.push({ id: generateId(), type: 'expense', amount, categoryId: 'c-loan', date: new Date().toISOString().split('T')[0], note: `Платеж: ${loan.name}`, timestamp: Date.now() });
-            saveData(); updateAllViews();
-            showToast('Платеж внесен');
-        }
-
-        function openManageCategoriesModal() {
-            document.getElementById('manage-cat-type-label').textContent = currentAddType === 'expense' ? 'Расход' : 'Доход';
-            document.getElementById('manage-categories-modal').classList.remove('hidden');
+        // --- Categories Management ---
+        function openCategoryModal() {
+            document.getElementById('category-modal').classList.remove('hidden');
+            renderColorPicker();
+            renderIconPicker();
             renderManageCategoriesList();
         }
-        function closeManageCategoriesModal() { document.getElementById('manage-categories-modal').classList.add('hidden'); renderCategoriesGrid(); }
 
-        function renderManageCategoriesList() {
-            const container = document.getElementById('manage-categories-list');
-            container.innerHTML = '';
-            (categories[currentAddType] || []).forEach(cat => {
-                const el = document.createElement('div');
-                el.className = 'flex justify-between items-center bg-gray-50 dark:bg-gray-800 rounded-xl p-2 border border-gray-100 dark:border-gray-700';
-                el.innerHTML = `
-                    <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full flex items-center justify-center text-white" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div>
-                        <span class="font-bold text-sm">${cat.name}</span>
-                    </div>
-                    ${cat.isCustom ? `<div class="flex gap-1 shrink-0"><button onclick="openEditCategoryModal('${cat.id}')" class="p-2 text-gray-400 hover:text-blue-500 transition"><i class="fas fa-pen"></i></button><button onclick="openDeleteModal('${cat.id}', 'category', 'Удалить категорию?', 'Ранее добавленные операции сохранятся.')" class="p-2 text-gray-400 hover:text-red-500 transition"><i class="fas fa-trash"></i></button></div>` : `<div class="text-xs text-gray-400 px-2">Базовая</div>`}
-                `;
-                container.appendChild(el);
-            });
+        function closeCategoryModal() {
+            document.getElementById('category-modal').classList.add('hidden');
+            renderCategoriesGrid();
         }
-
-        function openEditCategoryModal(id = null) {
-            editingCategoryId = id;
-            document.getElementById('edit-cat-modal-title').textContent = id ? 'Редактировать' : 'Новая категория';
-            if (id) {
-                const cat = categories[currentAddType].find(c => c.id === id);
-                if (cat) { document.getElementById('edit-cat-name').value = cat.name; editorSelectedColor = cat.color; editorSelectedIcon = cat.icon; }
-            } else {
-                document.getElementById('edit-cat-name').value = '';
-                editorSelectedColor = currentAddType === 'expense' ? '#ef4444' : '#10b981';
-                editorSelectedIcon = 'fa-star';
-            }
-            renderColorPicker(); renderIconPicker();
-            document.getElementById('edit-category-modal').classList.remove('hidden');
-        }
-        function closeEditCategoryModal() { document.getElementById('edit-category-modal').classList.add('hidden'); }
 
         function renderColorPicker() {
-            const container = document.getElementById('edit-cat-colors');
+            const container = document.getElementById('color-picker');
             container.innerHTML = '';
-            availableColors.forEach(color => {
-                const div = document.createElement('div');
-                const isSelected = color === editorSelectedColor;
-                div.className = `w-8 h-8 rounded-full cursor-pointer flex items-center justify-center transition-transform ${isSelected ? 'ring-2 ring-offset-2 ring-blue-500 dark:ring-offset-gray-900 scale-110' : 'hover:scale-110'}`;
-                div.style.backgroundColor = color;
-                if (isSelected) div.innerHTML = '<i class="fas fa-check text-white text-xs"></i>';
-                div.onclick = () => { editorSelectedColor = color; renderColorPicker(); };
-                container.appendChild(div);
+            paletteColors.forEach(color => {
+                const isSelected = selectedNewColor === color;
+                container.innerHTML += `
+                    <button onclick="selectedNewColor='${color}'; renderColorPicker()" 
+                        class="w-8 h-8 rounded-full flex-shrink-0 border-2 ${isSelected ? 'border-gray-800 dark:border-white scale-110' : 'border-transparent'} transition-transform" 
+                        style="background-color: ${color}">
+                    </button>
+                `;
             });
         }
 
         function renderIconPicker() {
-            const container = document.getElementById('edit-cat-icons');
+            const container = document.getElementById('icon-picker');
             container.innerHTML = '';
-            availableIcons.forEach(icon => {
-                const isSelected = icon === editorSelectedIcon;
-                const div = document.createElement('div');
-                div.className = `w-10 h-10 rounded-2xl cursor-pointer flex items-center justify-center text-xl transition-all ${isSelected ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/40 dark:text-blue-400 ring-2 ring-blue-500 scale-110' : 'text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'}`;
-                div.innerHTML = `<i class="fas ${icon}"></i>`;
-                div.onclick = () => { editorSelectedIcon = icon; renderIconPicker(); };
-                container.appendChild(div);
+            paletteIcons.forEach(icon => {
+                const isSelected = selectedNewIcon === icon;
+                container.innerHTML += `
+                    <button onclick="selectedNewIcon='${icon}'; renderIconPicker()" 
+                        class="w-10 h-10 rounded-xl flex-shrink-0 flex items-center justify-center text-lg ${isSelected ? 'bg-blue-100 text-blue-500' : 'bg-gray-100 dark:bg-gray-800 text-gray-500'} transition-colors">
+                        <i class="fas ${icon}"></i>
+                    </button>
+                `;
             });
         }
 
-        function saveCategory() {
-            const name = document.getElementById('edit-cat-name').value.trim();
-            if (!name) return showToast('Введите название', true);
-            const newCat = { id: editingCategoryId || generateId(), name, color: editorSelectedColor, icon: editorSelectedIcon, isCustom: true };
-            if (!categories[currentAddType]) categories[currentAddType] = [];
-            if (editingCategoryId) {
-                const index = categories[currentAddType].findIndex(c => c.id === editingCategoryId);
-                if (index !== -1) categories[currentAddType][index] = newCat;
-            } else categories[currentAddType].push(newCat);
-            saveData(); closeEditCategoryModal(); renderManageCategoriesList(); 
+        function renderManageCategoriesList() {
+            const list = document.getElementById('manage-categories-list');
+            list.innerHTML = '';
+            categories.forEach(cat => {
+                list.innerHTML += `
+                    <div class="flex justify-between items-center bg-gray-50 dark:bg-gray-800 p-3 rounded-xl">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs" style="background-color: ${cat.color}">
+                                <i class="fas ${cat.icon}"></i>
+                            </div>
+                            <span class="text-sm font-medium">${cat.name}</span>
+                        </div>
+                        <button onclick="deleteCategory('${cat.id}')" class="text-red-500 p-2"><i class="fas fa-trash"></i></button>
+                    </div>
+                `;
+            });
         }
 
-        function openDeleteModal(id, type, title, text) {
-            itemToDeleteId = id; itemToDeleteType = type;
-            document.getElementById('delete-modal-title').textContent = title;
-            document.getElementById('delete-modal-text').textContent = text;
-            document.getElementById('delete-modal').classList.remove('hidden');
-        }
-        function closeDeleteModal() { document.getElementById('delete-modal').classList.add('hidden'); itemToDeleteId = null; itemToDeleteType = null; }
-
-        document.getElementById('confirm-delete-btn').addEventListener('click', () => {
-            if (itemToDeleteId && itemToDeleteType) {
-                if (itemToDeleteType === 'transaction') { transactions = transactions.filter(t => t.id !== itemToDeleteId); updateAllViews(); }
-                else if (itemToDeleteType === 'loan') { loans = loans.filter(l => l.id !== itemToDeleteId); renderLoans(); }
-                else if (itemToDeleteType === 'category') { categories[currentAddType] = categories[currentAddType].filter(c => c.id !== itemToDeleteId); renderManageCategoriesList(); }
-                else if (itemToDeleteType === 'template') { templates = templates.filter(t => t.id !== itemToDeleteId); renderManageTemplatesList(); }
-                saveData(); closeDeleteModal(); showToast('Успешно удалено');
+        function addCategory() {
+            const nameInput = document.getElementById('new-cat-name');
+            const name = nameInput.value.trim();
+            if (!name) {
+                haptic('heavy');
+                return;
             }
+
+            categories.push({
+                id: Date.now().toString(),
+                name,
+                icon: selectedNewIcon,
+                color: selectedNewColor,
+                type: currentType
+            });
+
+            nameInput.value = '';
+            saveData();
+            renderManageCategoriesList();
+            haptic('success');
+        }
+
+        function deleteCategory(id) {
+            categories = categories.filter(c => c.id !== id);
+            saveData();
+            renderManageCategoriesList();
+            haptic('light');
+        }
+
+        // --- Loans Management ---
+        function renderLoans() {
+            const list = document.getElementById('loans-list');
+            if(!list) return;
+            list.innerHTML = '';
+            
+            if (loans.length === 0) {
+                list.innerHTML = '<p class="text-center text-gray-500 mt-10">Нет активных кредитов или долгов</p>';
+                return;
+            }
+
+            loans.forEach(loan => {
+                const percent = Math.min(100, Math.round((loan.paid / loan.total) * 100));
+                list.innerHTML += `
+                    <div class="bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm">
+                        <div class="flex justify-between items-start mb-2">
+                            <div>
+                                <h3 class="font-bold text-lg">${loan.name}</h3>
+                                <p class="text-xs text-gray-500">Осталось: ${(loan.total - loan.paid).toLocaleString()} ₽</p>
+                            </div>
+                            <div class="flex gap-2">
+                                <button onclick="editLoan('${loan.id}')" class="text-gray-400 hover:text-blue-500 p-1"><i class="fas fa-pencil-alt"></i></button>
+                                <button onclick="deleteLoan('${loan.id}')" class="text-red-500 p-1"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                        <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 mb-3">
+                            <div class="bg-blue-500 h-2.5 rounded-full" style="width: ${percent}%"></div>
+                        </div>
+                        <div class="flex justify-between items-center text-sm font-medium">
+                            <span class="text-green-500">${loan.paid.toLocaleString()} ₽</span>
+                            <span>${loan.total.toLocaleString()} ₽</span>
+                        </div>
+                        <button onclick="payLoan('${loan.id}')" class="mt-4 w-full py-2 bg-blue-50 dark:bg-gray-800 text-blue-500 rounded-xl font-bold text-sm hover:bg-blue-100 transition-colors">
+                            Внести платеж
+                        </button>
+                    </div>
+                `;
+            });
+        }
+
+        function openLoanModal(loanId = null) {
+            const modal = document.getElementById('loan-modal');
+            const title = document.getElementById('loan-modal-title');
+            const nameInput = document.getElementById('loan-name');
+            const totalInput = document.getElementById('loan-total');
+            const paidInput = document.getElementById('loan-paid');
+            const idInput = document.getElementById('loan-id-input');
+
+            if (loanId) {
+                const loan = loans.find(l => l.id === loanId);
+                title.textContent = 'Редактировать';
+                nameInput.value = loan.name;
+                totalInput.value = loan.total;
+                paidInput.value = loan.paid;
+                idInput.value = loan.id;
+            } else {
+                title.textContent = 'Новый кредит/долг';
+                nameInput.value = '';
+                totalInput.value = '';
+                paidInput.value = '';
+                idInput.value = '';
+            }
+            
+            modal.classList.remove('hidden');
+        }
+
+        function closeLoanModal() {
+            document.getElementById('loan-modal').classList.add('hidden');
+        }
+
+        function editLoan(id) {
+            openLoanModal(id);
+        }
+
+        function saveLoan() {
+            const id = document.getElementById('loan-id-input').value;
+            const name = document.getElementById('loan-name').value.trim();
+            const total = parseFloat(document.getElementById('loan-total').value);
+            const paid = parseFloat(document.getElementById('loan-paid').value) || 0;
+
+            if (!name || isNaN(total) || total <= 0) {
+                haptic('heavy');
+                return;
+            }
+
+            if (id) {
+                const index = loans.findIndex(l => l.id === id);
+                if (index !== -1) {
+                    loans[index] = { ...loans[index], name, total, paid };
+                }
+            } else {
+                loans.push({
+                    id: Date.now().toString(),
+                    name,
+                    total,
+                    paid
+                });
+            }
+
+            saveData();
+            closeLoanModal();
+            haptic('success');
+            showToast('Кредит сохранен!');
+        }
+
+        function deleteLoan(id) {
+            loans = loans.filter(l => l.id !== id);
+            saveData();
+            haptic('light');
+        }
+
+        function payLoan(id) {
+            const loan = loans.find(l => l.id === id);
+            if(!loan) return;
+            
+            openCustomPrompt(`Платеж: ${loan.name}`, `Остаток: ${(loan.total - loan.paid).toLocaleString()} ₽`, 'Сумма платежа', 'number', (val) => {
+                const amount = parseFloat(val);
+                loan.paid += amount;
+                
+                let loanCat = categories.find(c => c.name === 'Кредит');
+                if(!loanCat) loanCat = defaultCategories.find(c => c.name === 'Кредит');
+                
+                transactions.push({
+                    id: Date.now().toString(),
+                    amount: amount,
+                    type: 'expense',
+                    categoryId: loanCat.id,
+                    note: `Платеж: ${loan.name}`,
+                    date: new Date().toISOString(),
+                    loanId: loan.id 
+                });
+                
+                saveData();
+                haptic('success');
+                showToast('Платеж внесен!');
+            });
+        }
+
+        // --- Settings & Utils ---
+        function closeModals() {
+            document.getElementById('add-modal').classList.add('hidden');
+        }
+
+        function openSettingsModal() {
+            document.getElementById('settings-modal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function exportData() {
+            const dataObj = { transactions, categories, loans, templates };
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataObj));
+            const dlAnchorElem = document.createElement('a');
+            dlAnchorElem.setAttribute("href", dataStr);
+            dlAnchorElem.setAttribute("download", `finance_backup_${new Date().toISOString().slice(0,10)}.json`);
+            dlAnchorElem.click();
+            showToast('Файл скачан!');
+        }
+
+        function importData(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = JSON.parse(e.target.result);
+                    transactions = data.transactions || [];
+                    categories = data.categories || defaultCategories;
+                    loans = data.loans || [];
+                    templates = data.templates || [];
+                    saveData();
+                    closeSettingsModal();
+                    showToast('Данные восстановлены!');
+                    haptic('success');
+                } catch (error) {
+                    showToast('Ошибка чтения файла!');
+                    haptic('heavy');
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        // Theme Handling
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        themeToggleBtn.addEventListener('click', () => {
+            if (document.documentElement.classList.contains('dark')) {
+                document.documentElement.classList.remove('dark');
+                localStorage.setItem('theme', 'light');
+                tg.setHeaderColor('#ffffff');
+                tg.setBackgroundColor('#f9fafb');
+            } else {
+                document.documentElement.classList.add('dark');
+                localStorage.setItem('theme', 'dark');
+                tg.setHeaderColor('#1e1e1e');
+                tg.setBackgroundColor('#121212');
+            }
+            haptic('light');
         });
+
+        function applyTheme() {
+            let isDark = false;
+            if (tg.colorScheme) {
+                isDark = tg.colorScheme === 'dark';
+            } else {
+                isDark = localStorage.getItem('theme') === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            }
+            
+            if (isDark) {
+                document.documentElement.classList.add('dark');
+                tg.setHeaderColor('#1e1e1e');
+                tg.setBackgroundColor('#121212');
+            } else {
+                document.documentElement.classList.remove('dark');
+                tg.setHeaderColor('#ffffff');
+                tg.setBackgroundColor('#f9fafb');
+            }
+        }
     </script>
 </body>
 </html>
