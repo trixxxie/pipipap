@@ -31,38 +31,50 @@
         body { -webkit-tap-highlight-color: transparent; }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
-        .pb-safe { padding-bottom: env(safe-area-inset-bottom, 20px); }
     </style>
 </head>
 <body class="bg-gray-100 dark:bg-darkBg text-gray-900 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
 
+    <!-- Header -->
     <header class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm z-10 shrink-0">
         <h1 id="header-title" class="text-xl font-bold flex items-baseline gap-2">Мои Финансы</h1>
         <div class="flex gap-4 items-center">
-            <i id="cloud-sync-indicator" class="fas fa-sync fa-spin text-blue-500 text-sm opacity-0 transition-opacity duration-300"></i>
+            <i id="cloud-sync-indicator" class="fas fa-cloud text-gray-400 opacity-0 transition-opacity duration-300"></i>
             <button onclick="toggleTheme()" class="text-gray-500 dark:text-gray-400 text-xl"><i class="fas fa-moon dark:fa-sun"></i></button>
             <button onclick="openSettingsModal()" class="text-gray-500 dark:text-gray-400 text-xl"><i class="fas fa-cog"></i></button>
         </div>
     </header>
 
+    <!-- Main Content -->
     <main class="flex-1 overflow-y-auto no-scrollbar relative pb-24">
         
         <!-- Home Screen -->
         <div id="home-screen" class="screen-view p-4">
-            
             <!-- Notifications Widget -->
-            <div id="notifications-widget" class="hidden mb-4 bg-yellow-50 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-700 rounded-2xl p-4 shadow-sm">
-                <div class="flex items-center gap-3 mb-2">
-                    <i class="fas fa-bell text-yellow-500 text-lg"></i>
-                    <h3 class="font-bold text-yellow-800 dark:text-yellow-500 text-sm">Предстоящие платежи</h3>
+            <div id="notifications-widget" class="hidden mb-4 bg-yellow-50 dark:bg-yellow-900/30 p-3 rounded-2xl border border-yellow-100 dark:border-yellow-800">
+                <div class="flex items-center gap-2 mb-2 text-yellow-600 dark:text-yellow-400 font-bold text-sm">
+                    <i class="fas fa-bell"></i> Предстоящие платежи
                 </div>
                 <div id="notifications-content" class="space-y-1"></div>
             </div>
 
             <!-- Balance Card -->
-            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl p-6 text-white shadow-lg mb-4">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 rounded-3xl p-6 text-white shadow-lg mb-6">
                 <p class="text-sm opacity-80 mb-1">Общий баланс</p>
                 <h2 id="total-balance" class="text-3xl font-bold mb-4">0 ₽</h2>
+                
+                <!-- Safe Balance -->
+                <div class="bg-white/20 rounded-xl p-3 mb-4 flex items-center justify-between">
+                    <div>
+                        <p class="text-xs opacity-80 flex items-center gap-1"><i class="fas fa-shield-alt"></i> Безопасный остаток</p>
+                        <p id="safe-balance" class="font-bold text-lg">0 ₽ <span class="text-xs font-normal">/ день</span></p>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs opacity-80">До цели</p>
+                        <p id="safe-days-left" class="font-bold text-lg">0 дн.</p>
+                    </div>
+                </div>
+
                 <div class="flex justify-between border-t border-white/20 pt-4">
                     <div>
                         <p class="text-xs opacity-80"><i class="fas fa-arrow-down mr-1"></i>Доход</p>
@@ -75,53 +87,27 @@
                 </div>
             </div>
 
-            <!-- Safe Balance Widget -->
-            <div class="bg-white dark:bg-darkCard rounded-2xl p-4 shadow-sm mb-6 flex justify-between items-center border border-gray-50 dark:border-gray-800">
-                <div class="flex items-center gap-3">
-                    <div class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-900/30 text-green-500 flex items-center justify-center text-lg">
-                        <i class="fas fa-shield-alt"></i>
-                    </div>
-                    <div>
-                        <p class="text-xs text-gray-500 font-bold mb-0.5">Безопасный остаток</p>
-                        <p id="safe-balance" class="font-bold text-lg text-gray-800 dark:text-gray-200">0 ₽ <span class="text-xs font-normal">/ день</span></p>
-                    </div>
-                </div>
-                <div class="text-right">
-                    <p class="text-[10px] text-gray-400 mb-1">Осталось</p>
-                    <p id="safe-days-left" class="text-sm font-bold bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">0 дн.</p>
-                </div>
-            </div>
-
             <div class="flex justify-between items-end mb-4">
                 <h3 class="font-bold text-lg">Последние операции</h3>
-                <button onclick="switchTab('history')" class="text-blue-500 text-sm font-bold">Все</button>
+                <button onclick="switchTab('history')" class="text-blue-500 text-sm">Все</button>
             </div>
             <div id="recent-transactions"></div>
         </div>
 
         <!-- History Screen -->
         <div id="history-screen" class="screen-view p-4 hidden">
-            <div class="bg-white dark:bg-darkCard p-3 rounded-2xl shadow-sm mb-4 border border-gray-50 dark:border-gray-800">
-                <div class="flex gap-2 mb-3">
-                    <div class="flex-1">
-                        <label class="text-[10px] text-gray-400 font-bold ml-1">С даты</label>
-                        <input type="date" id="history-date-start" onchange="renderHistory()" class="w-full bg-gray-100 dark:bg-gray-800 rounded-lg p-2 text-sm outline-none">
-                    </div>
-                    <div class="flex-1">
-                        <label class="text-[10px] text-gray-400 font-bold ml-1">По дату</label>
-                        <input type="date" id="history-date-end" onchange="renderHistory()" class="w-full bg-gray-100 dark:bg-gray-800 rounded-lg p-2 text-sm outline-none">
-                    </div>
+            <div class="bg-white dark:bg-darkCard p-3 rounded-2xl mb-4 border border-gray-50 dark:border-gray-800 shadow-sm flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                    <input type="date" id="history-date-start" onchange="renderHistory()" class="flex-1 bg-gray-100 dark:bg-gray-800 text-sm p-2 rounded-xl outline-none text-gray-700 dark:text-gray-300">
+                    <span class="text-gray-400">-</span>
+                    <input type="date" id="history-date-end" onchange="renderHistory()" class="flex-1 bg-gray-100 dark:bg-gray-800 text-sm p-2 rounded-xl outline-none text-gray-700 dark:text-gray-300">
+                    <button onclick="resetHistoryFilter()" class="p-2 text-gray-400 hover:text-blue-500"><i class="fas fa-times"></i></button>
                 </div>
-                <button onclick="resetHistoryFilter()" class="w-full bg-gray-50 dark:bg-gray-800 text-gray-500 py-1.5 rounded-lg text-xs font-bold"><i class="fas fa-times mr-1"></i> Сбросить фильтр</button>
-                
-                <div id="history-summary" class="hidden mt-3 pt-3 border-t border-gray-100 dark:border-gray-700 flex justify-between">
-                    <div>
-                        <p class="text-[10px] text-gray-400 mb-0.5">Доходы за период</p>
-                        <p id="hist-sum-inc" class="font-bold text-income">0 ₽</p>
-                    </div>
-                    <div class="text-right">
-                        <p class="text-[10px] text-gray-400 mb-0.5">Расходы за период</p>
-                        <p id="hist-sum-exp" class="font-bold text-expense">0 ₽</p>
+                <div id="history-summary" class="hidden flex justify-between text-xs pt-2 border-t border-gray-100 dark:border-gray-800">
+                    <span class="text-gray-500">За период:</span>
+                    <div class="flex gap-3">
+                        <span id="hist-sum-inc" class="text-income font-bold">+0 ₽</span>
+                        <span id="hist-sum-exp" class="text-expense font-bold">-0 ₽</span>
                     </div>
                 </div>
             </div>
@@ -130,39 +116,38 @@
 
         <!-- Analytics Screen -->
         <div id="analytics-screen" class="screen-view p-4 hidden flex-col h-full">
-            <div class="flex gap-2 mb-4 shrink-0">
-                <button id="btn-chart-pie" onclick="setChartType('pie')" class="flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white">Категории</button>
-                <button id="btn-chart-bar" onclick="setChartType('bar')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">Динамика</button>
-            </div>
             <div class="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl mb-4 shrink-0">
                 <button id="btn-period-day" onclick="setAnalyticsPeriod('day')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">День</button>
                 <button id="btn-period-month" onclick="setAnalyticsPeriod('month')" class="flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white">Месяц</button>
                 <button id="btn-period-year" onclick="setAnalyticsPeriod('year')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">Год</button>
             </div>
             
-            <div class="flex justify-between items-center mb-6 shrink-0">
-                <button onclick="changeAnalyticsDate(-1)" class="p-2 text-gray-500"><i class="fas fa-chevron-left"></i></button>
-                <label class="font-bold text-lg cursor-pointer flex items-center justify-center">
-                    <span id="analytics-date-display">...</span>
-                </label>
-                <button onclick="changeAnalyticsDate(1)" class="p-2 text-gray-500"><i class="fas fa-chevron-right"></i></button>
+            <div class="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl mb-4 shrink-0">
+                <button id="btn-chart-pie" onclick="setChartType('pie')" class="flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white">Категории</button>
+                <button id="btn-chart-bar" onclick="setChartType('bar')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">Динамика</button>
             </div>
 
+            <div class="flex justify-between items-center mb-6 shrink-0">
+                <button onclick="changeAnalyticsDate(-1)" class="p-2 text-gray-500"><i class="fas fa-chevron-left"></i></button>
+                <span id="analytics-date-display" class="font-bold text-lg">...</span>
+                <button onclick="changeAnalyticsDate(1)" class="p-2 text-gray-500"><i class="fas fa-chevron-right"></i></button>
+            </div>
+            
             <div class="relative h-48 mb-6 shrink-0 flex items-center justify-center">
                 <canvas id="expenseChart"></canvas>
-                <div id="pie-total-overlay" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-4">
-                    <span class="text-xs text-gray-500">Всего</span>
+                <div id="pie-total-overlay" class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-4 hidden">
+                    <span class="text-xs text-gray-500">Всего расходы</span>
                     <span id="chart-total" class="font-bold text-xl truncate w-full text-center">0 ₽</span>
                 </div>
             </div>
-
-            <div id="analytics-summary" class="hidden mb-4 bg-white dark:bg-darkCard rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800">
-                <div class="flex justify-between text-sm mb-2"><span class="text-gray-500">Доходы:</span><span id="stat-inc-total" class="font-bold text-income">0 ₽</span></div>
-                <div class="flex justify-between text-sm mb-2"><span class="text-gray-500">Расходы:</span><span id="stat-exp-total" class="font-bold text-expense">0 ₽</span></div>
-                <div class="flex justify-between text-sm pt-2 border-t border-gray-100 dark:border-gray-700"><span class="text-gray-500 font-bold">Накопления:</span><span id="stat-net-total" class="font-bold">0 ₽</span></div>
+            
+            <div id="analytics-summary" class="hidden bg-white dark:bg-darkCard p-4 rounded-2xl shadow-sm border border-gray-50 dark:border-gray-800 mb-4 shrink-0">
+                <div class="flex justify-between mb-2"><span class="text-sm text-gray-500">Доходы:</span><span id="stat-inc-total" class="font-bold text-income">0 ₽</span></div>
+                <div class="flex justify-between mb-2"><span class="text-sm text-gray-500">Расходы:</span><span id="stat-exp-total" class="font-bold text-expense">0 ₽</span></div>
+                <div class="flex justify-between border-t border-gray-100 dark:border-gray-700 pt-2"><span class="text-sm font-bold">Накопления:</span><span id="stat-net-total" class="font-bold">0 ₽</span></div>
             </div>
 
-            <div id="analytics-details" class="flex-1 overflow-y-auto space-y-2 pb-6"></div>
+            <div id="analytics-details" class="flex-1 space-y-2 pb-6"></div>
         </div>
 
         <!-- Plans Screen -->
@@ -172,30 +157,31 @@
                 <button id="btn-tab-goals" onclick="setPlansTab('goals')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">Копилки</button>
                 <button id="btn-tab-regs" onclick="setPlansTab('regs')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">Подписки</button>
             </div>
-
+            
             <div id="loans-view">
                 <button onclick="openLoanModal()" class="w-full bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400 py-3 rounded-xl font-bold mb-4 flex justify-center items-center gap-2">
-                    <i class="fas fa-plus-circle"></i> Добавить кредит / долг
+                    <i class="fas fa-plus-circle"></i> Новый долг
                 </button>
                 <div id="loans-list" class="space-y-4"></div>
             </div>
 
             <div id="goals-view" class="hidden">
                 <button onclick="openGoalModal()" class="w-full bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400 py-3 rounded-xl font-bold mb-4 flex justify-center items-center gap-2">
-                    <i class="fas fa-plus-circle"></i> Создать копилку
+                    <i class="fas fa-plus-circle"></i> Новая цель
                 </button>
                 <div id="goals-list" class="space-y-4"></div>
             </div>
 
             <div id="regs-view" class="hidden">
                 <button onclick="openRegModal()" class="w-full bg-purple-50 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400 py-3 rounded-xl font-bold mb-4 flex justify-center items-center gap-2">
-                    <i class="fas fa-sync"></i> Добавить подписку
+                    <i class="fas fa-plus-circle"></i> Новая подписка
                 </button>
-                <div id="regs-list" class="space-y-4"></div>
+                <div id="regs-list" class="space-y-3"></div>
             </div>
         </div>
     </main>
 
+    <!-- Bottom Navigation -->
     <nav class="bg-white dark:bg-darkCard shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)] flex justify-around p-2 pb-safe absolute bottom-0 w-full z-20 shrink-0 border-t border-gray-100 dark:border-gray-800">
         <button onclick="switchTab('home')" data-target="home" class="nav-btn text-blue-500 flex flex-col items-center p-2 w-16">
             <i class="fas fa-wallet text-xl mb-1"></i><span class="text-[10px]">Главная</span>
@@ -203,29 +189,31 @@
         <button onclick="switchTab('history')" data-target="history" class="nav-btn text-gray-400 flex flex-col items-center p-2 w-16">
             <i class="fas fa-list text-xl mb-1"></i><span class="text-[10px]">История</span>
         </button>
+        
         <div class="relative -top-6">
             <button onclick="openAddScreen()" class="bg-blue-500 text-white w-14 h-14 rounded-full shadow-lg flex justify-center items-center text-2xl transform transition active:scale-95">
                 <i class="fas fa-plus"></i>
             </button>
         </div>
+
         <button onclick="switchTab('analytics')" data-target="analytics" class="nav-btn text-gray-400 flex flex-col items-center p-2 w-16">
             <i class="fas fa-chart-pie text-xl mb-1"></i><span class="text-[10px]">Аналитика</span>
         </button>
         <button onclick="switchTab('plans')" data-target="plans" class="nav-btn text-gray-400 flex flex-col items-center p-2 w-16">
-            <i class="fas fa-layer-group text-xl mb-1"></i><span class="text-[10px]">Планы</span>
+            <i class="fas fa-calendar-alt text-xl mb-1"></i><span class="text-[10px]">Планы</span>
         </button>
     </nav>
 
-    <!-- Add Transaction Screen -->
+    <!-- Add Screen -->
     <div id="add-screen" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-30 hidden flex-col">
         <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm">
             <button onclick="closeAddScreen()" class="text-gray-500"><i class="fas fa-times text-xl"></i></button>
             <h2 id="add-screen-title" class="text-lg font-bold">Новая операция</h2>
-            <div class="w-6"></div>
+            <div class="w-5"></div>
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-6">
             <div class="bg-white dark:bg-darkCard rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800 flex items-center justify-center">
-                <input type="number" id="amount-input" placeholder="0" class="w-full text-center text-4xl font-bold bg-transparent outline-none dark:text-white">
+                <input type="number" id="amount-input" placeholder="0" class="w-full text-center text-4xl font-bold bg-transparent outline-none dark:text-white placeholder-gray-300 dark:placeholder-gray-600">
             </div>
             <div class="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl">
                 <button id="type-expense" onclick="setAddType('expense')" class="flex-1 py-2 text-sm font-bold rounded-lg shadow bg-white dark:bg-gray-700 text-expense">Расход</button>
@@ -236,7 +224,7 @@
                     <span class="text-sm font-bold text-gray-500">Категория</span>
                     <button onclick="openManageCategoriesModal()" class="text-xs text-blue-500">Настроить</button>
                 </div>
-                <div id="categories-grid" class="grid grid-cols-4 gap-y-4 gap-x-2 max-h-48 overflow-y-auto no-scrollbar pb-4"></div>
+                <div id="categories-grid" class="grid grid-cols-4 gap-y-4 gap-x-2 max-h-48 overflow-y-auto no-scrollbar pt-2 px-2 -mx-2 pb-4"></div>
             </div>
             <div class="space-y-4">
                 <div class="flex items-center bg-white dark:bg-darkCard rounded-xl p-3 shadow-sm border border-gray-50 dark:border-gray-800">
@@ -250,7 +238,7 @@
             </div>
         </div>
         <div class="p-4 bg-white dark:bg-darkCard shrink-0">
-            <button onclick="saveTransaction()" class="w-full bg-blue-500 text-white font-bold text-lg py-4 rounded-2xl shadow-lg">Сохранить</button>
+            <button onclick="saveTransaction()" class="w-full bg-blue-500 text-white font-bold text-lg py-4 rounded-2xl shadow-lg active:scale-95 transition-transform">Сохранить</button>
         </div>
     </div>
 
@@ -259,62 +247,48 @@
         <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 class="text-lg font-bold mb-4">Настройки</h3>
             
-            <div class="mb-6">
-                <p class="text-sm font-bold text-gray-500 mb-2">Облачная синхронизация</p>
-                <button onclick="forceSyncData()" class="w-full flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 rounded-xl hover:bg-blue-100 transition border border-blue-100 dark:border-blue-800">
-                    <span class="font-bold flex items-center"><i class="fas fa-cloud-upload-alt mr-2"></i> Синхр. с Telegram</span>
-                    <i class="fas fa-chevron-right text-xs opacity-50"></i>
-                </button>
-            </div>
-            
-            <div class="mb-6">
-                <p class="text-sm font-bold text-gray-500 mb-2">Финансовый цикл (Безопасный остаток)</p>
-                <div class="space-y-2">
-                    <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-                        <span class="text-sm font-medium">Дата зарплаты</span>
-                        <input type="number" id="setting-salary-1" placeholder="до 31" min="1" max="31" class="w-16 bg-white dark:bg-darkCard border border-gray-200 dark:border-gray-600 rounded-lg p-1 text-center outline-none">
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 mb-4 border border-gray-100 dark:border-gray-700">
+                <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Даты для безопасного остатка</p>
+                <div class="flex gap-2">
+                    <div class="flex-1">
+                        <label class="text-xs text-gray-500">Зарплата (число)</label>
+                        <input type="number" id="setting-salary-1" min="1" max="31" placeholder="Напр. 10" class="w-full bg-white dark:bg-gray-700 p-2 rounded-lg outline-none mt-1">
                     </div>
-                    <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700">
-                        <span class="text-sm font-medium">Дата аванса</span>
-                        <input type="number" id="setting-salary-2" placeholder="до 31" min="1" max="31" class="w-16 bg-white dark:bg-darkCard border border-gray-200 dark:border-gray-600 rounded-lg p-1 text-center outline-none">
+                    <div class="flex-1">
+                        <label class="text-xs text-gray-500">Аванс (число)</label>
+                        <input type="number" id="setting-salary-2" min="1" max="31" placeholder="Напр. 25" class="w-full bg-white dark:bg-gray-700 p-2 rounded-lg outline-none mt-1">
                     </div>
                 </div>
-                <p class="text-[10px] text-gray-400 mt-2">Оставьте пустым для расчета до конца текущего месяца.</p>
             </div>
 
-            <div class="mb-6 space-y-2">
-                <p class="text-sm font-bold text-gray-500 mb-2">Резервное копирование</p>
-                <button onclick="exportDataCSV()" class="w-full flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/30 rounded-xl border border-green-100 dark:border-green-800">
-                    <i class="fas fa-file-excel text-green-500"></i>
-                    <span class="font-medium text-left text-green-700 dark:text-green-400">Экспорт в CSV<br><span class="text-[10px] opacity-70">Для Excel / Таблиц</span></span>
+            <div class="space-y-2 mb-4">
+                <button onclick="forceSyncData()" class="w-full flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 dark:text-blue-400 font-medium">
+                    <i class="fas fa-sync"></i> Синхронизировать облако
                 </button>
-                <button onclick="exportData()" class="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700">
-                    <i class="fas fa-download text-blue-500"></i>
-                    <span class="font-medium text-left">Бэкап (JSON)</span>
+                <button onclick="exportDataCSV()" class="w-full flex items-center gap-3 p-3 bg-green-50 dark:bg-green-900/20 rounded-xl text-green-600 dark:text-green-400 font-medium">
+                    <i class="fas fa-file-excel"></i> Экспорт в CSV / Excel
                 </button>
-                <label class="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 cursor-pointer">
-                    <i class="fas fa-upload text-purple-500"></i>
-                    <span class="font-medium text-left">Восстановить (JSON)</span>
+                <button onclick="exportData()" class="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl text-gray-600 dark:text-gray-300 font-medium border border-gray-100 dark:border-gray-700">
+                    <i class="fas fa-download"></i> Резервная копия (JSON)
+                </button>
+                <label class="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl text-gray-600 dark:text-gray-300 font-medium border border-gray-100 dark:border-gray-700 cursor-pointer">
+                    <i class="fas fa-upload"></i> Восстановить (JSON)
                     <input type="file" onchange="handleImportData(event)" accept=".json" class="hidden">
                 </label>
             </div>
 
-            <div class="mb-6">
-                 <p class="text-sm font-bold text-gray-500 mb-2">Для разработчиков</p>
-                 <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 mb-2">
-                     <span class="text-sm font-medium">Дебаг: Имитация даты</span>
-                     <label class="relative inline-flex items-center cursor-pointer">
-                         <input type="checkbox" id="debug-time-toggle" class="sr-only peer" onchange="toggleDebugTime()">
-                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-500"></div>
-                     </label>
-                 </div>
-                 <div id="debug-date-picker" class="hidden flex gap-2">
-                     <input type="date" id="debug-date-input" class="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-2 outline-none">
-                     <button onclick="applyDebugDate()" class="bg-gray-200 dark:bg-gray-700 px-4 rounded-xl font-bold">OK</button>
-                 </div>
+            <div class="border-t border-gray-100 dark:border-gray-700 pt-4 mb-4">
+                <label class="flex items-center justify-between mb-2">
+                    <span class="text-sm font-bold text-orange-500"><i class="fas fa-bug mr-1"></i> Дебаг: Имитация даты</span>
+                    <input type="checkbox" id="debug-time-toggle" onchange="toggleDebugTime()" class="w-4 h-4">
+                </label>
+                <div id="debug-date-picker" class="hidden flex gap-2">
+                    <input type="date" id="debug-date-input" class="flex-1 bg-gray-100 dark:bg-gray-800 p-2 rounded-xl text-sm outline-none">
+                    <button onclick="applyDebugDate()" class="bg-orange-500 text-white px-3 rounded-xl font-bold text-sm">OK</button>
+                </div>
             </div>
 
-            <p id="settings-version" class="text-center text-xs text-gray-400 mt-6"></p>
+            <p id="settings-version" class="text-center text-xs text-gray-400"></p>
             <button onclick="closeSettingsModal()" class="w-full mt-4 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Закрыть</button>
         </div>
     </div>
@@ -322,11 +296,11 @@
     <!-- Loan Modal -->
     <div id="loan-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
-            <h3 id="loan-modal-title" class="text-lg font-bold mb-4">Новый долг / кредит</h3>
-            <div class="space-y-4 mb-6">
+            <h3 class="text-lg font-bold mb-4">Долг / Кредит</h3>
+            <div class="space-y-3 mb-6">
                 <input type="text" id="loan-name" placeholder="Название (например, Ипотека)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
                 <input type="number" id="loan-total" placeholder="Общая сумма" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
-                <input type="number" id="loan-paid" placeholder="Уже выплачено (по умолчанию 0)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
+                <input type="number" id="loan-paid" placeholder="Уже выплачено" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
             </div>
             <div class="flex gap-3">
                 <button onclick="closeLoanModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
@@ -338,11 +312,11 @@
     <!-- Goal Modal -->
     <div id="goal-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
-            <h3 id="goal-modal-title" class="text-lg font-bold mb-4">Новая копилка</h3>
-            <div class="space-y-4 mb-6">
-                <input type="text" id="goal-name" placeholder="Название (напр. Отпуск)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
+            <h3 class="text-lg font-bold mb-4">Копилка</h3>
+            <div class="space-y-3 mb-6">
+                <input type="text" id="goal-name" placeholder="Название (например, Отпуск)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
                 <input type="number" id="goal-total" placeholder="Цель (сумма)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
-                <input type="number" id="goal-current" placeholder="Уже накоплено (по умолчанию 0)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
+                <input type="number" id="goal-current" placeholder="Уже накоплено" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
             </div>
             <div class="flex gap-3">
                 <button onclick="closeGoalModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
@@ -354,30 +328,32 @@
     <!-- Reg Modal -->
     <div id="reg-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
-            <h3 id="reg-modal-title" class="text-lg font-bold mb-4">Регулярный платеж</h3>
+            <h3 class="text-lg font-bold mb-4">Регулярный платеж</h3>
             <div class="space-y-3 mb-6">
-                <input type="text" id="reg-name" placeholder="Название (Spotify, Интернет)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
+                <input type="text" id="reg-name" placeholder="Название (Spotify, Аренда)" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
                 <input type="number" id="reg-amount" placeholder="Сумма" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
-                <select id="reg-type" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
-                    <option value="expense">Расход</option>
-                    <option value="income">Доход</option>
-                </select>
-                <select id="reg-freq" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
-                    <option value="month">Раз в месяц</option>
-                    <option value="week">Раз в неделю</option>
-                    <option value="year">Раз в год</option>
-                </select>
-                <div>
-                    <label class="text-xs text-gray-500 ml-1">Дата ближайшего списания</label>
+                
+                <div class="flex gap-2">
+                    <select id="reg-type" class="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
+                        <option value="expense">Расход</option>
+                        <option value="income">Доход</option>
+                    </select>
+                    <select id="reg-freq" class="flex-1 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
+                        <option value="month">Раз в месяц</option>
+                        <option value="week">Раз в неделю</option>
+                        <option value="year">Раз в год</option>
+                    </select>
+                </div>
+                
+                <div class="flex flex-col">
+                    <label class="text-xs text-gray-500 mb-1">Дата следующего платежа</label>
                     <input type="date" id="reg-date" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-3 outline-none">
                 </div>
-                <div class="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-100 dark:border-gray-700 mt-2">
-                     <span class="text-sm font-medium">Авто-добавление в историю</span>
-                     <label class="relative inline-flex items-center cursor-pointer">
-                         <input type="checkbox" id="reg-auto" class="sr-only peer">
-                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-purple-500"></div>
-                     </label>
-                </div>
+
+                <label class="flex items-center gap-2 p-3 bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700">
+                    <input type="checkbox" id="reg-auto" class="w-4 h-4">
+                    <span class="text-sm font-bold">Авто-добавление в историю</span>
+                </label>
             </div>
             <div class="flex gap-3">
                 <button onclick="closeRegModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
@@ -390,7 +366,9 @@
     <div id="payment-modal" class="fixed inset-0 bg-black/50 z-50 hidden flex items-center justify-center p-4">
         <div class="bg-white dark:bg-darkCard w-full max-w-sm rounded-3xl p-6 shadow-xl">
             <h3 id="payment-modal-title" class="text-lg font-bold mb-4 text-center">Внести платеж</h3>
-            <input type="number" id="payment-amount" placeholder="Сумма" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 outline-none text-2xl font-bold text-center mb-6">
+            <div class="space-y-4 mb-6">
+                <input type="number" id="payment-amount" placeholder="Сумма" class="w-full bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-4 outline-none text-2xl font-bold text-center">
+            </div>
             <div class="flex gap-3">
                 <button onclick="closePaymentModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
                 <button onclick="confirmPayment()" class="flex-1 py-3 bg-green-500 rounded-xl font-bold text-white">Внести</button>
@@ -401,9 +379,11 @@
     <!-- Delete Modal -->
     <div id="delete-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center p-4">
         <div class="bg-white dark:bg-darkCard w-full max-w-xs rounded-3xl p-6 shadow-xl text-center">
-            <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 flex items-center justify-center text-3xl mx-auto mb-4"><i class="fas fa-exclamation-triangle"></i></div>
+            <div class="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 text-red-500 flex items-center justify-center text-3xl mx-auto mb-4">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
             <h3 id="delete-modal-title" class="text-lg font-bold mb-2">Удалить?</h3>
-            <p id="delete-modal-text" class="text-sm text-gray-500 mb-6"></p>
+            <p id="delete-modal-text" class="text-sm text-gray-500 mb-6">Это действие нельзя отменить.</p>
             <div class="flex gap-3">
                 <button onclick="closeDeleteModal()" class="flex-1 py-3 bg-gray-100 dark:bg-gray-800 rounded-xl font-bold text-gray-600 dark:text-gray-300">Отмена</button>
                 <button id="confirm-delete-btn" class="flex-1 py-3 bg-red-500 rounded-xl font-bold text-white">Удалить</button>
@@ -415,13 +395,13 @@
     <div id="manage-categories-modal" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-40 hidden flex-col">
         <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm shrink-0">
             <button onclick="closeManageCategoriesModal()" class="text-gray-500"><i class="fas fa-arrow-left text-xl"></i></button>
-            <h2 class="text-lg font-bold">Настройка категорий</h2>
+            <h2 class="text-lg font-bold">Категории</h2>
             <button onclick="openEditCategoryModal()" class="text-blue-500"><i class="fas fa-plus text-xl"></i></button>
         </div>
         <div id="manage-categories-list" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
     </div>
 
-    <!-- Edit/Add Category Modal -->
+    <!-- Edit Category Modal -->
     <div id="edit-category-modal" class="fixed inset-0 bg-gray-100 dark:bg-darkBg z-50 hidden flex-col">
         <div class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm shrink-0">
             <button onclick="closeEditCategoryModal()" class="text-gray-500"><i class="fas fa-arrow-left text-xl"></i></button>
@@ -430,7 +410,7 @@
         </div>
         <div class="flex-1 overflow-y-auto p-4 space-y-6">
             <div class="bg-white dark:bg-darkCard rounded-2xl p-4 shadow-sm border border-gray-50 dark:border-gray-800">
-                <input type="text" id="edit-cat-name" placeholder="Название категории" class="w-full text-center text-xl font-bold bg-transparent outline-none dark:text-white">
+                <input type="text" id="edit-cat-name" placeholder="Название" class="w-full text-center text-xl font-bold bg-transparent outline-none">
             </div>
             <div>
                 <p class="text-sm font-bold text-gray-500 mb-3 ml-1">Цвет</p>
@@ -444,13 +424,13 @@
     </div>
 
     <!-- Toast Notification -->
-    <div id="toast-notification" class="fixed top-4 left-1/2 -translate-x-1/2 bg-white dark:bg-darkCard shadow-lg rounded-full px-4 py-3 flex items-center z-[70] transition-all duration-300 transform -translate-y-24 opacity-0 pointer-events-none">
-        <i class="fas fa-check-circle mr-2 text-lg"></i>
-        <span id="toast-message" class="text-sm font-medium text-gray-800 dark:text-gray-200"></span>
+    <div id="toast-notification" class="fixed top-4 left-1/2 -translate-x-1/2 bg-white dark:bg-darkCard shadow-lg rounded-full px-4 py-3 flex items-center z-[70] transition-all duration-300 transform -translate-y-24 opacity-0 pointer-events-none border border-gray-100 dark:border-gray-800">
+        <i class="fas fa-check-circle text-green-400 mr-2 text-lg"></i>
+        <span id="toast-message" class="text-sm font-medium text-gray-800 dark:text-gray-200">Успешно</span>
     </div>
 
     <script>
-        const APP_VERSION = "v1.14.0";
+        const APP_VERSION = "v1.14.2";
         const tg = window.Telegram.WebApp;
 
         // --- Auth & Time Logic ---
@@ -724,7 +704,22 @@
             
             // Attach delete modal listener once DOM is loaded safely.
             document.getElementById('confirm-delete-btn').addEventListener('click', () => {
-                if(delType==='tx') transactions = transactions.filter(t=>t.id!==delId);
+                if(delType==='tx') {
+                    const tx = transactions.find(t=>t.id===delId);
+                    if (tx) {
+                        // Откат суммы для кредитов
+                        if (tx.categoryId === 'c-loan' && tx.note && tx.note.startsWith('Долг: ')) {
+                            const loan = loans.find(l => l.name === tx.note.substring(6));
+                            if (loan) loan.paidAmount = Math.max(0, loan.paidAmount - tx.amount);
+                        }
+                        // Откат суммы для копилок
+                        if (tx.categoryId === 'c-goal' && tx.note && tx.note.startsWith('Цель: ')) {
+                            const goal = goals.find(g => g.name === tx.note.substring(6));
+                            if (goal) goal.currentAmount = Math.max(0, goal.currentAmount - tx.amount);
+                        }
+                    }
+                    transactions = transactions.filter(t=>t.id!==delId);
+                }
                 if(delType==='loan') loans = loans.filter(l=>l.id!==delId);
                 if(delType==='goal') goals = goals.filter(g=>g.id!==delId);
                 if(delType==='reg') regularPayments = regularPayments.filter(r=>r.id!==delId);
@@ -1022,6 +1017,25 @@
             };
 
             if (editingTransactionId) {
+                const oldTx = transactions.find(t => t.id === editingTransactionId);
+                if (oldTx) {
+                    // Пересчет кредитов при изменении суммы
+                    if (oldTx.categoryId === 'c-loan' && oldTx.note && oldTx.note.startsWith('Долг: ')) {
+                        const loan = loans.find(l => l.name === oldTx.note.substring(6));
+                        if (loan) {
+                            loan.paidAmount = Math.max(0, loan.paidAmount - oldTx.amount);
+                            if (newTx.categoryId === 'c-loan' && newTx.note === oldTx.note) loan.paidAmount += newTx.amount;
+                        }
+                    }
+                    // Пересчет копилок при изменении суммы
+                    if (oldTx.categoryId === 'c-goal' && oldTx.note && oldTx.note.startsWith('Цель: ')) {
+                        const goal = goals.find(g => g.name === oldTx.note.substring(6));
+                        if (goal) {
+                            goal.currentAmount = Math.max(0, goal.currentAmount - oldTx.amount);
+                            if (newTx.categoryId === 'c-goal' && newTx.note === oldTx.note) goal.currentAmount += newTx.amount;
+                        }
+                    }
+                }
                 const idx = transactions.findIndex(t => t.id === editingTransactionId);
                 if (idx !== -1) transactions[idx] = newTx;
             } else { transactions.push(newTx); }
