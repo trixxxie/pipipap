@@ -261,6 +261,17 @@
                 </div>
             </div>
 
+            <div class="bg-gray-50 dark:bg-gray-800 rounded-xl p-3 mb-4 border border-gray-100 dark:border-gray-700">
+                <p class="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">Напоминания о подписках</p>
+                <select id="setting-notif-days" class="w-full bg-white dark:bg-gray-700 p-2 rounded-lg outline-none text-sm text-gray-700 dark:text-gray-300">
+                    <option value="0">В день платежа</option>
+                    <option value="1">За 1 день</option>
+                    <option value="3">За 3 дня</option>
+                    <option value="7">За неделю</option>
+                    <option value="-1">Отключить</option>
+                </select>
+            </div>
+
             <div class="space-y-2 mb-4">
                 <button onclick="forceSyncData()" class="w-full flex items-center gap-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl text-blue-600 dark:text-blue-400 font-medium">
                     <i class="fas fa-sync"></i> Синхронизировать облако
@@ -430,11 +441,11 @@
     </div>
 
     <script>
-        const APP_VERSION = "v1.14.2";
+        const APP_VERSION = "v1.15.0";
         const tg = window.Telegram.WebApp;
 
         // --- Auth & Time Logic ---
-        const ALLOWED_USER_IDS = [703834598, 5723922886]; 
+        const ALLOWED_USER_IDS = [703834598, 703834598]; 
         
         let customDebugDate = null;
         let isDebugTime = false;
@@ -475,7 +486,7 @@
         let goals = [];
         let templates = [];
         let regularPayments = [];
-        let appSettings = { salary1: '', salary2: '' };
+        let appSettings = { salary1: '', salary2: '', notifDays: 3 };
         let isDarkMode = localStorage.getItem('theme') === 'dark';
         
         const defaultCategories = {
@@ -790,6 +801,8 @@
         function calculateUpcomingRegs(today, targetDate) {
             let total = 0;
             const notifs = [];
+            const notifThreshold = appSettings.notifDays !== undefined ? parseInt(appSettings.notifDays) : 3;
+
             regularPayments.forEach(reg => {
                 if (reg.type !== 'expense') return;
                 const rDate = new Date(reg.nextDate);
@@ -798,7 +811,7 @@
                 }
                 const diffTime = rDate - today;
                 const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                if (diffDays >= 0 && diffDays <= 3) {
+                if (notifThreshold !== -1 && diffDays >= 0 && diffDays <= notifThreshold) {
                     notifs.push({ name: reg.name, days: diffDays, amount: reg.amount, isAuto: reg.isAuto });
                 }
             });
@@ -1047,14 +1060,19 @@
         function openSettingsModal() { 
             document.getElementById('setting-salary-1').value = appSettings.salary1 || '';
             document.getElementById('setting-salary-2').value = appSettings.salary2 || '';
+            document.getElementById('setting-notif-days').value = appSettings.notifDays !== undefined ? appSettings.notifDays : 3;
             document.getElementById('settings-modal').classList.remove('hidden'); 
         }
         
         function closeSettingsModal() { 
             const s1 = document.getElementById('setting-salary-1').value;
             const s2 = document.getElementById('setting-salary-2').value;
-            if (s1 !== appSettings.salary1 || s2 !== appSettings.salary2) {
-                appSettings.salary1 = s1; appSettings.salary2 = s2;
+            const nDays = parseInt(document.getElementById('setting-notif-days').value);
+
+            if (s1 !== appSettings.salary1 || s2 !== appSettings.salary2 || nDays !== appSettings.notifDays) {
+                appSettings.salary1 = s1; 
+                appSettings.salary2 = s2;
+                appSettings.notifDays = nDays;
                 saveData(); renderHome();
             }
             document.getElementById('settings-modal').classList.add('hidden'); 
