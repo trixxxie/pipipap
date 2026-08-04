@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Мои Финансы</title>
     
-    <!-- Dependencies -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -35,7 +34,6 @@
 </head>
 <body class="bg-gray-100 dark:bg-darkBg text-gray-900 dark:text-gray-100 font-sans h-screen flex flex-col overflow-hidden transition-colors duration-300">
 
-    <!-- Header -->
     <header class="flex justify-between items-center p-4 bg-white dark:bg-darkCard shadow-sm z-10 shrink-0">
         <h1 id="header-title" class="text-xl font-bold flex items-baseline gap-2">Мои Финансы</h1>
         <div class="flex gap-4 items-center">
@@ -45,7 +43,6 @@
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class="flex-1 overflow-y-auto no-scrollbar relative pb-24">
         
         <!-- Home Screen -->
@@ -95,7 +92,7 @@
         </div>
 
         <!-- History Screen -->
-        <div id="history-screen" class="screen-view p-4 hidden">
+        <div id="history-screen" class="screen-view p-4 hidden pb-24">
             <div class="bg-white dark:bg-darkCard p-3 rounded-2xl mb-4 border border-gray-50 dark:border-gray-800 shadow-sm flex flex-col gap-2">
                 <div class="flex items-center gap-2">
                     <input type="date" id="history-date-start" onchange="renderHistory()" class="flex-1 bg-gray-100 dark:bg-gray-800 text-sm p-2 rounded-xl outline-none text-gray-700 dark:text-gray-300">
@@ -115,7 +112,7 @@
         </div>
 
         <!-- Analytics Screen -->
-        <div id="analytics-screen" class="screen-view p-4 hidden flex-col h-full">
+        <div id="analytics-screen" class="screen-view p-4 hidden flex-col">
             <div class="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl mb-4 shrink-0">
                 <button id="btn-period-day" onclick="setAnalyticsPeriod('day')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">День</button>
                 <button id="btn-period-month" onclick="setAnalyticsPeriod('month')" class="flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white">Месяц</button>
@@ -147,11 +144,11 @@
                 <div class="flex justify-between border-t border-gray-100 dark:border-gray-700 pt-2"><span class="text-sm font-bold">Накопления:</span><span id="stat-net-total" class="font-bold">0 ₽</span></div>
             </div>
 
-            <div id="analytics-details" class="flex-1 space-y-2 pb-6"></div>
+            <div id="analytics-details" class="flex-1 space-y-2 pb-24"></div>
         </div>
 
         <!-- Plans Screen -->
-        <div id="plans-screen" class="screen-view p-4 hidden">
+        <div id="plans-screen" class="screen-view p-4 hidden pb-24">
             <div class="flex bg-gray-200 dark:bg-gray-800 p-1 rounded-xl mb-4 shrink-0">
                 <button id="btn-tab-loans" onclick="setPlansTab('loans')" class="flex-1 py-1.5 text-sm font-medium rounded-lg bg-white dark:bg-gray-700 shadow text-gray-900 dark:text-white">Кредиты</button>
                 <button id="btn-tab-goals" onclick="setPlansTab('goals')" class="flex-1 py-1.5 text-sm font-medium rounded-lg text-gray-500">Копилки</button>
@@ -409,7 +406,7 @@
             <h2 class="text-lg font-bold">Категории</h2>
             <button onclick="openEditCategoryModal()" class="text-blue-500"><i class="fas fa-plus text-xl"></i></button>
         </div>
-        <div id="manage-categories-list" class="flex-1 overflow-y-auto p-4 space-y-2"></div>
+        <div id="manage-categories-list" class="flex-1 overflow-y-auto p-4 pb-24 space-y-2"></div>
     </div>
 
     <!-- Edit Category Modal -->
@@ -441,11 +438,11 @@
     </div>
 
     <script>
-        const APP_VERSION = "v1.15.0";
+        const APP_VERSION = "v1.17.0";
         const tg = window.Telegram.WebApp;
 
         // --- Auth & Time Logic ---
-        const ALLOWED_USER_IDS = [703834598, 703834598]; 
+        const ALLOWED_USER_IDS = [703834598, 842801642]; 
         
         let customDebugDate = null;
         let isDebugTime = false;
@@ -491,16 +488,16 @@
         
         const defaultCategories = {
             expense: [
-                {id: 'c1', name: 'Продукты', icon: 'fa-shopping-basket', color: '#3b82f6', isCustom: false},
-                {id: 'c2', name: 'Кафе', icon: 'fa-coffee', color: '#f59e0b', isCustom: false},
-                {id: 'c3', name: 'Транспорт', icon: 'fa-car', color: '#8b5cf6', isCustom: false},
-                {id: 'c4', name: 'Дом', icon: 'fa-home', color: '#10b981', isCustom: false},
-                {id: 'c5', name: 'Развлечения', icon: 'fa-film', color: '#ec4899', isCustom: false},
-                {id: 'c-loan', name: 'Кредиты/Долги', icon: 'fa-landmark', color: '#64748b', isCustom: false},
-                {id: 'c-goal', name: 'В копилку', icon: 'fa-bullseye', color: '#14b8a6', isCustom: false}
+                {id: 'c1', name: 'Продукты', icon: 'fa-shopping-basket', color: '#3b82f6'},
+                {id: 'c2', name: 'Кафе', icon: 'fa-coffee', color: '#f59e0b'},
+                {id: 'c3', name: 'Транспорт', icon: 'fa-car', color: '#8b5cf6'},
+                {id: 'c4', name: 'Дом', icon: 'fa-home', color: '#10b981'},
+                {id: 'c5', name: 'Развлечения', icon: 'fa-film', color: '#ec4899'},
+                {id: 'c-loan', name: 'Кредиты/Долги', icon: 'fa-landmark', color: '#64748b'},
+                {id: 'c-goal', name: 'В копилку', icon: 'fa-bullseye', color: '#14b8a6'}
             ],
             income: [
-                {id: 'c8', name: 'Зарплата', icon: 'fa-money-bill-wave', color: '#10b981', isCustom: false}
+                {id: 'c8', name: 'Зарплата', icon: 'fa-money-bill-wave', color: '#10b981'}
             ]
         };
         let categories = JSON.parse(JSON.stringify(defaultCategories));
@@ -713,7 +710,6 @@
                 }
             }
             
-            // Attach delete modal listener once DOM is loaded safely.
             document.getElementById('confirm-delete-btn').addEventListener('click', () => {
                 if(delType==='tx') {
                     const tx = transactions.find(t=>t.id===delId);
@@ -962,8 +958,8 @@
         let currentAddType = 'expense', selectedCategoryId = null, editingTransactionId = null;
         
         let editingCategoryId = null, editorSelectedColor = '#3b82f6', editorSelectedIcon = 'fa-star';
-        const availableColors = ['#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', '#10b981', '#14b8a6', '#06b6d4', '#0ea5e9', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef', '#f43f5e', '#64748b', '#78716c', '#b91c1c'];
-        const availableIcons = ['fa-star', 'fa-heart', 'fa-car', 'fa-shopping-cart', 'fa-utensils', 'fa-coffee', 'fa-laptop', 'fa-mobile-alt', 'fa-gamepad', 'fa-music', 'fa-dumbbell', 'fa-paw', 'fa-gift', 'fa-home', 'fa-briefcase', 'fa-plane', 'fa-bus', 'fa-gas-pump', 'fa-film', 'fa-baby', 'fa-graduation-cap', 'fa-wrench', 'fa-tools', 'fa-bicycle', 'fa-wallet', 'fa-credit-card', 'fa-receipt', 'fa-chart-line', 'fa-shopping-basket', 'fa-hamburger', 'fa-pizza-slice', 'fa-apple-alt', 'fa-cocktail', 'fa-running', 'fa-futbol', 'fa-ticket-alt', 'fa-video', 'fa-headphones', 'fa-book', 'fa-school', 'fa-hospital', 'fa-taxi', 'fa-cat', 'fa-dog', 'fa-lightbulb', 'fa-paint-roller', 'fa-palette'];
+        const availableColors = ['#ef4444', '#f87171', '#dc2626', '#f97316', '#fb923c', '#f59e0b', '#fbbf24', '#84cc16', '#a3e635', '#22c55e', '#4ade80', '#10b981', '#34d399', '#14b8a6', '#2dd4bf', '#06b6d4', '#22d3ee', '#0ea5e9', '#38bdf8', '#3b82f6', '#60a5fa', '#2563eb', '#6366f1', '#818cf8', '#8b5cf6', '#a78bfa', '#d946ef', '#e879f9', '#f43f5e', '#fb7185', '#64748b', '#94a3b8', '#78716c', '#a8a29e'];
+        const availableIcons = ['fa-star', 'fa-heart', 'fa-home', 'fa-wallet', 'fa-credit-card', 'fa-receipt', 'fa-chart-line', 'fa-coins', 'fa-piggy-bank', 'fa-gem', 'fa-shopping-cart', 'fa-shopping-basket', 'fa-gift', 'fa-utensils', 'fa-coffee', 'fa-hamburger', 'fa-pizza-slice', 'fa-apple-alt', 'fa-cocktail', 'fa-wine-glass', 'fa-ice-cream', 'fa-carrot', 'fa-car', 'fa-plane', 'fa-bus', 'fa-taxi', 'fa-bicycle', 'fa-train', 'fa-ship', 'fa-motorcycle', 'fa-subway', 'fa-globe', 'fa-gas-pump', 'fa-laptop', 'fa-mobile-alt', 'fa-gamepad', 'fa-music', 'fa-film', 'fa-video', 'fa-headphones', 'fa-tv', 'fa-dumbbell', 'fa-running', 'fa-spa', 'fa-tooth', 'fa-pills', 'fa-stethoscope', 'fa-tshirt', 'fa-shoe-prints', 'fa-glasses', 'fa-bolt', 'fa-faucet', 'fa-wifi', 'fa-couch', 'fa-briefcase', 'fa-book', 'fa-school', 'fa-graduation-cap', 'fa-paw', 'fa-cat', 'fa-dog', 'fa-baby', 'fa-wrench', 'fa-tools', 'fa-lightbulb', 'fa-paint-roller', 'fa-palette', 'fa-hospital', 'fa-futbol', 'fa-ticket-alt'];
 
         function openAddScreen(txId = null) {
             editingTransactionId = txId;
@@ -1338,12 +1334,22 @@
         function closeDeleteModal() { document.getElementById('delete-modal').classList.add('hidden'); }
 
         // --- Categories & SortableJS ---
-        function openManageCategoriesModal() { document.getElementById('manage-categories-modal').classList.remove('hidden'); renderManageCategoriesList(); }
-        function closeManageCategoriesModal() { document.getElementById('manage-categories-modal').classList.add('hidden'); renderCategoriesGrid(); }
+        function openManageCategoriesModal() { 
+            const modal = document.getElementById('manage-categories-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+            renderManageCategoriesList(); 
+        }
+        function closeManageCategoriesModal() { 
+            const modal = document.getElementById('manage-categories-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            renderCategoriesGrid(); 
+        }
         function renderManageCategoriesList() {
             const cnt = document.getElementById('manage-categories-list'); cnt.innerHTML = '';
             categories[currentAddType].forEach(cat => {
-                cnt.innerHTML += `<div data-id="${cat.id}" class="flex justify-between items-center bg-white dark:bg-darkCard p-3 rounded-xl border border-gray-100 dark:border-gray-800"><div class="flex items-center gap-3"><div class="cat-handle text-gray-300 px-2 py-1 cursor-grab touch-none"><i class="fas fa-bars"></i></div><div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div><span class="font-bold text-sm">${cat.name}</span></div>${cat.isCustom ? `<div class="flex gap-1 shrink-0"><button onclick="openEditCategoryModal('${cat.id}')" class="p-2 text-gray-400 hover:text-blue-500 transition"><i class="fas fa-pen"></i></button><button onclick="openDeleteModal('${cat.id}', 'cat', 'Удалить?', '')" class="text-red-500 p-2"><i class="fas fa-trash"></i></button></div>` : `<span class="text-[10px] text-gray-400">База</span>`}</div>`;
+                cnt.innerHTML += `<div data-id="${cat.id}" class="flex justify-between items-center bg-white dark:bg-darkCard p-3 rounded-xl border border-gray-100 dark:border-gray-800"><div class="flex items-center gap-3"><div class="cat-handle text-gray-300 px-2 py-1 cursor-grab touch-none"><i class="fas fa-bars"></i></div><div class="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs" style="background-color: ${cat.color}"><i class="fas ${cat.icon}"></i></div><span class="font-bold text-sm">${cat.name}</span></div><div class="flex gap-1 shrink-0"><button onclick="openEditCategoryModal('${cat.id}')" class="p-2 text-gray-400 hover:text-blue-500 transition"><i class="fas fa-pen"></i></button><button onclick="openDeleteModal('${cat.id}', 'cat', 'Удалить?', '')" class="text-red-500 p-2"><i class="fas fa-trash"></i></button></div></div>`;
             });
             new Sortable(cnt, { handle: '.cat-handle', animation: 150, onEnd: function () {
                 const newOrder = Array.from(cnt.children).map(el => el.getAttribute('data-id'));
@@ -1364,10 +1370,17 @@
                 editorSelectedIcon = 'fa-star';
             }
             renderColorPicker(); renderIconPicker();
-            document.getElementById('edit-category-modal').classList.remove('hidden');
+            
+            const modal = document.getElementById('edit-category-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
         }
         
-        function closeEditCategoryModal() { document.getElementById('edit-category-modal').classList.add('hidden'); }
+        function closeEditCategoryModal() { 
+            const modal = document.getElementById('edit-category-modal');
+            modal.classList.add('hidden'); 
+            modal.classList.remove('flex'); 
+        }
 
         function renderColorPicker() {
             const container = document.getElementById('edit-cat-colors');
@@ -1399,7 +1412,7 @@
         function saveCategory() {
             const name = document.getElementById('edit-cat-name').value.trim();
             if (!name) return showToast('Введите название', true);
-            const newCat = { id: editingCategoryId || generateId(), name, color: editorSelectedColor, icon: editorSelectedIcon, isCustom: true };
+            const newCat = { id: editingCategoryId || generateId(), name, color: editorSelectedColor, icon: editorSelectedIcon };
             if (!categories[currentAddType]) categories[currentAddType] = [];
             if (editingCategoryId) {
                 const index = categories[currentAddType].findIndex(c => c.id === editingCategoryId);
